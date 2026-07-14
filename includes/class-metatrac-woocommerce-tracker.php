@@ -82,10 +82,10 @@ class Metatrac_WooCommerce_Tracker {
 
 		$page_url    = wp_get_referer() ? wp_get_referer() : Metatrac_Pixel::current_url();
 		$custom_data = $this->build_product_data( $product, $quantity );
-		$event_id    = $this->fire_event( 'AddToCart', $custom_data, $page_url, [], false );
 
-		// Queue for a normal page render (classic non-ajax add to cart).
-		Metatrac_Pixel::queue_event( 'AddToCart', $custom_data, $event_id );
+		// Queues it for a normal page render (classic non-ajax add to cart),
+		// sends the CAPI copy, and logs it.
+		$event_id = $this->fire_event( 'AddToCart', $custom_data, $page_url );
 
 		// Also stash it so the ajax fragment handler below can push it to the
 		// browser immediately, in case this request never renders a footer.
@@ -169,17 +169,12 @@ class Metatrac_WooCommerce_Tracker {
 	 * @param array  $custom_data     custom_data payload.
 	 * @param string $page_url        Page the event is associated with.
 	 * @param array  $extra_user_data Optional email/phone overrides for CAPI matching.
-	 * @param bool   $queue_for_pixel Whether to queue this for the footer Pixel flush
-	 *                                (false when the caller queues it separately, e.g. AddToCart).
-	 * @return string The event_id used, so callers can reuse it.
+	 * @return string The event_id used, so callers can reuse it (e.g. for the ajax add-to-cart fragment).
 	 */
-	private function fire_event( $event_name, array $custom_data, $page_url, array $extra_user_data = [], $queue_for_pixel = true ) {
+	private function fire_event( $event_name, array $custom_data, $page_url, array $extra_user_data = [] ) {
 		$event_id = wp_generate_uuid4();
 
-		if ( $queue_for_pixel ) {
-			Metatrac_Pixel::queue_event( $event_name, $custom_data, $event_id );
-		}
-
+		Metatrac_Pixel::queue_event( $event_name, $custom_data, $event_id );
 		( new Metatrac_CAPI() )->send_event( $event_name, $event_id, $custom_data, $page_url, $extra_user_data );
 		Metatrac_Logger::log_event( $event_name, $page_url, $event_id, $custom_data );
 
