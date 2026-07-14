@@ -43,7 +43,11 @@ class Metatrac_WooCommerce_Tracker {
 		}
 
 		if ( Metatrac_Settings::is_event_enabled( 'InitiateCheckout' ) ) {
-			add_action( 'woocommerce_before_checkout_form', [ $this, 'track_initiate_checkout' ], 10 );
+			// Hooked to 'wp' and gated on is_checkout() rather than the classic
+			// woocommerce_before_checkout_form hook, since that hook only fires
+			// from the [woocommerce_checkout] shortcode template — it never runs
+			// for the block-based Checkout, which is the default on newer stores.
+			add_action( 'wp', [ $this, 'track_initiate_checkout' ] );
 		}
 
 		if ( Metatrac_Settings::is_event_enabled( 'Purchase' ) ) {
@@ -125,9 +129,14 @@ class Metatrac_WooCommerce_Tracker {
 	}
 
 	/**
-	 * Tracks InitiateCheckout when the checkout form loads with items in the cart.
+	 * Tracks InitiateCheckout on the checkout page (classic or block-based),
+	 * as long as it's not the order-received page and the cart isn't empty.
 	 */
 	public function track_initiate_checkout() {
+		if ( ! function_exists( 'is_checkout' ) || ! is_checkout() || is_order_received_page() ) {
+			return;
+		}
+
 		if ( ! WC()->cart || WC()->cart->is_empty() ) {
 			return;
 		}

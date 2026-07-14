@@ -2,7 +2,7 @@
 /**
  * Class Metatrac_Admin_Settings
  *
- * Renders and saves the MetaTrac settings screen, under WooCommerce > MetaTrac.
+ * Renders and saves the MetaTrac settings screen, under Settings > MetaTrac.
  */
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -22,14 +22,14 @@ class Metatrac_Admin_Settings {
 	}
 
 	/**
-	 * Adds the settings page under the WooCommerce menu.
+	 * Adds the settings page under the Settings menu.
 	 */
 	public function add_admin_menu() {
 		add_submenu_page(
-			'woocommerce',
+			'options-general.php',
 			__( 'MetaTrac Settings', 'metatrac' ),
 			__( 'MetaTrac', 'metatrac' ),
-			'manage_woocommerce',
+			'manage_options',
 			self::PAGE_SLUG,
 			[ $this, 'render_settings_page' ]
 		);
@@ -94,7 +94,7 @@ class Metatrac_Admin_Settings {
 	 * Renders the settings page markup.
 	 */
 	public function render_settings_page() {
-		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
 

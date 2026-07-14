@@ -3,7 +3,7 @@
  * Plugin Name: MetaTrac
  * Plugin URI: https://www.lifexmarketing.com/metatrac/
  * Description: Tracks key WooCommerce ecommerce events and sends them to Meta via both the Pixel (browser) and the Conversions API (server), with per-site event selection and a debug mode for console + log-file visibility.
- * Version: 1.0.0
+ * Version: 1.0.1
  * Author: LifeX Marketing
  * Author URI: https://www.lifexmarketing.com
  * License: GPL-2.0+
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define plugin constants for easy referencing.
-define( 'METATRAC_VERSION', '1.0.0' );
+define( 'METATRAC_VERSION', '1.0.1' );
 define( 'METATRAC_PLUGIN_PATH', plugin_dir_path( __FILE__ ) );
 define( 'METATRAC_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 

@@ -18,7 +18,7 @@ the bundled [Plugin Update Checker](https://github.com/YahnisElsts/plugin-update
 ## Setup on a site
 
 1. Install the plugin (see "Installing / updating" below).
-2. Go to **WooCommerce > MetaTrac**.
+2. Go to **Settings > MetaTrac** (requires the `manage_options` capability).
 3. Enter the **Meta Pixel ID** and **Conversions API Access Token**.
 4. Check which events to track: `ViewContent`, `AddToCart`,
    `InitiateCheckout`, `Purchase`.
