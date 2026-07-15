@@ -20,7 +20,7 @@ class Metatrac_Settings {
 	 * @return array
 	 */
 	public static function trackable_events() {
-		return [ 'ViewContent', 'AddToCart', 'InitiateCheckout', 'Purchase', 'Contact' ];
+		return [ 'ViewContent', 'AddToCart', 'InitiateCheckout', 'Purchase', 'Contact', 'Lead' ];
 	}
 
 	/**

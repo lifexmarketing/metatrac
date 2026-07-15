@@ -58,6 +58,27 @@ class Metatrac_Pixel {
 	}
 
 	/**
+	 * Queues an event for the Pixel, sends it to the Conversions API, and
+	 * logs it: the fan-out shared by every server-driven tracked event
+	 * (WooCommerce, Gravity Forms, ...).
+	 *
+	 * @param string $event_name      Standard Meta event name.
+	 * @param array  $custom_data     custom_data payload.
+	 * @param string $page_url        Page the event is associated with.
+	 * @param array  $extra_user_data Optional email/phone overrides for CAPI matching.
+	 * @return string The event_id used, so callers can reuse it (e.g. for the ajax add-to-cart fragment).
+	 */
+	public static function fire_event( $event_name, array $custom_data, $page_url, array $extra_user_data = [] ) {
+		$event_id = wp_generate_uuid4();
+
+		self::queue_event( $event_name, $custom_data, $event_id );
+		( new Metatrac_CAPI() )->send_event( $event_name, $event_id, $custom_data, $page_url, $extra_user_data );
+		Metatrac_Logger::log_event( $event_name, $page_url, $event_id, $custom_data );
+
+		return $event_id;
+	}
+
+	/**
 	 * Outputs the base fbq loader, init call, and an automatic PageView.
 	 */
 	public function output_base_pixel() {

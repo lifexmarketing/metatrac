@@ -48,6 +48,7 @@ function metatrac_init() {
 	require_once METATRAC_PLUGIN_PATH . 'includes/class-metatrac-pixel.php';
 	require_once METATRAC_PLUGIN_PATH . 'includes/class-metatrac-woocommerce-tracker.php';
 	require_once METATRAC_PLUGIN_PATH . 'includes/class-metatrac-contact-tracker.php';
+	require_once METATRAC_PLUGIN_PATH . 'includes/class-metatrac-gravity-forms-tracker.php';
 
 	$pixel = new Metatrac_Pixel();
 	$pixel->init();
@@ -57,6 +58,9 @@ function metatrac_init() {
 
 	$contact_tracker = new Metatrac_Contact_Tracker();
 	$contact_tracker->init();
+
+	$gravity_forms_tracker = new Metatrac_Gravity_Forms_Tracker();
+	$gravity_forms_tracker->init();
 
 	// is_admin() is also true for admin-ajax.php requests (e.g. the ajax
 	// AddToCart call tracked above), so exclude those or the update checker

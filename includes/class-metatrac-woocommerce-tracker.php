@@ -65,7 +65,7 @@ class Metatrac_WooCommerce_Tracker {
 			return;
 		}
 
-		$this->fire_event( 'ViewContent', $this->build_product_data( $product, 1 ), Metatrac_Pixel::current_url() );
+		Metatrac_Pixel::fire_event( 'ViewContent', $this->build_product_data( $product, 1 ), Metatrac_Pixel::current_url() );
 	}
 
 	/**
@@ -89,7 +89,7 @@ class Metatrac_WooCommerce_Tracker {
 
 		// Queues it for a normal page render (classic non-ajax add to cart),
 		// sends the CAPI copy, and logs it.
-		$event_id = $this->fire_event( 'AddToCart', $custom_data, $page_url );
+		$event_id = Metatrac_Pixel::fire_event( 'AddToCart', $custom_data, $page_url );
 
 		// Also stash it so the ajax fragment handler below can push it to the
 		// browser immediately, in case this request never renders a footer.
@@ -151,7 +151,7 @@ class Metatrac_WooCommerce_Tracker {
 			return;
 		}
 
-		$this->fire_event( 'InitiateCheckout', $this->build_cart_data( WC()->cart ), Metatrac_Pixel::current_url() );
+		Metatrac_Pixel::fire_event( 'InitiateCheckout', $this->build_cart_data( WC()->cart ), Metatrac_Pixel::current_url() );
 
 		if ( WC()->session ) {
 			WC()->session->set( 'metatrac_initiate_checkout_hash', $cart_hash );
@@ -171,7 +171,7 @@ class Metatrac_WooCommerce_Tracker {
 
 		$custom_data = $this->build_order_data( $order );
 
-		$this->fire_event(
+		Metatrac_Pixel::fire_event(
 			'Purchase',
 			$custom_data,
 			Metatrac_Pixel::current_url(),
@@ -183,25 +183,6 @@ class Metatrac_WooCommerce_Tracker {
 
 		$order->update_meta_data( '_metatrac_purchase_tracked', 1 );
 		$order->save();
-	}
-
-	/**
-	 * Queues an event for the Pixel, sends it to the Conversions API, and logs it.
-	 *
-	 * @param string $event_name      Standard Meta event name.
-	 * @param array  $custom_data     custom_data payload.
-	 * @param string $page_url        Page the event is associated with.
-	 * @param array  $extra_user_data Optional email/phone overrides for CAPI matching.
-	 * @return string The event_id used, so callers can reuse it (e.g. for the ajax add-to-cart fragment).
-	 */
-	private function fire_event( $event_name, array $custom_data, $page_url, array $extra_user_data = [] ) {
-		$event_id = wp_generate_uuid4();
-
-		Metatrac_Pixel::queue_event( $event_name, $custom_data, $event_id );
-		( new Metatrac_CAPI() )->send_event( $event_name, $event_id, $custom_data, $page_url, $extra_user_data );
-		Metatrac_Logger::log_event( $event_name, $page_url, $event_id, $custom_data );
-
-		return $event_id;
 	}
 
 	/**

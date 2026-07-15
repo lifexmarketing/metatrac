@@ -100,6 +100,7 @@ class Metatrac_Admin_Settings {
 			'InitiateCheckout' => __( 'Checkout Started (InitiateCheckout)', 'metatrac' ),
 			'Purchase'         => __( 'Order Completed (Purchase)', 'metatrac' ),
 			'Contact'          => __( 'Phone/SMS Link Clicked (Contact), once per session', 'metatrac' ),
+			'Lead'             => __( 'Gravity Forms Submitted (Lead)', 'metatrac' ),
 		];
 	}
 
