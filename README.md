@@ -1,10 +1,10 @@
 # MetaTrac
 
-A WordPress/WooCommerce plugin that tracks core ecommerce events and sends
-them to Meta through both the browser Pixel and the server-side Conversions
-API (CAPI), so tracking survives ad blockers and iOS ATT opt-outs. Built as a
-successor to the internal `zooraz` (Cloudflare Zaraz) plugin, but talks to
-Meta directly instead of going through a dataLayer/Zaraz intermediary.
+A WordPress/WooCommerce plugin that tracks core ecommerce and lead-gen events
+and sends them to Meta through both the browser Pixel and the server-side
+Conversions API (CAPI), so tracking survives ad blockers and iOS ATT opt-outs.
+Built as a successor to the internal `zooraz` (Cloudflare Zaraz) plugin, but
+talks to Meta directly instead of going through a dataLayer/Zaraz intermediary.
 
 Installed on multiple client sites and updated centrally from this repo via
 the bundled [Plugin Update Checker](https://github.com/YahnisElsts/plugin-update-checker).
@@ -14,6 +14,8 @@ the bundled [Plugin Update Checker](https://github.com/YahnisElsts/plugin-update
 - WooCommerce active.
 - A Meta Pixel ID and a Conversions API access token (Events Manager > Data
   Sources > your Pixel > Settings > Conversions API > Generate access token).
+- Gravity Forms active, only if you want the `Lead` event; MetaTrac still
+  works fully without it, `Lead` just never fires.
 
 ## Setup on a site
 
@@ -21,7 +23,7 @@ the bundled [Plugin Update Checker](https://github.com/YahnisElsts/plugin-update
 2. Go to **Settings > MetaTrac** (requires the `manage_options` capability).
 3. Enter the **Meta Pixel ID** and **Conversions API Access Token**.
 4. Check which events to track: `ViewContent`, `AddToCart`,
-   `InitiateCheckout`, `Purchase`.
+   `InitiateCheckout`, `Purchase`, `Contact`, `Lead`.
 5. Optionally turn on **Debug Mode** while verifying a new install — see
    "Debug mode" below — and turn it back off once confirmed.
 6. Optionally paste a **Test Event Code** from Events Manager > Test Events
@@ -43,8 +45,10 @@ the browser and server copies:
 |---------------------|--------------------------------------------------------|
 | `ViewContent`       | Single product page view                                |
 | `AddToCart`         | `woocommerce_add_to_cart` (ajax or classic form submit)  |
-| `InitiateCheckout`  | Checkout page load, if the cart isn't empty              |
+| `InitiateCheckout`  | Checkout page load, if the cart isn't empty; deduped per cart contents so refreshing/revisiting an unchanged cart doesn't refire it |
 | `Purchase`          | Order-received ("thank you") page, once per order        |
+| `Contact`           | First click/tap on a `tel:` or `sms:` link anywhere on the site, once per browser session |
+| `Lead`              | Any Gravity Forms submission (`gform_after_submission`), site-wide |
 
 ### AddToCart and ajax carts
 
@@ -61,6 +65,32 @@ redirect to the cart), the browser Pixel `AddToCart` call for that specific
 add is skipped, since that request never renders a footer. The server-side
 CAPI event still fires normally.
 
+### Contact (tel:/sms: link clicks)
+
+There's no server-side hook for "a link was clicked", so detection happens
+entirely in `assets/js/metatrac-frontend.js`: a delegated click listener
+matches any `a[href^="tel:"]` or `a[href^="sms:"]` on the page. On the first
+match in a browser session (tracked via `sessionStorage`, so it resets when
+the tab/browser closes, not tied to a WooCommerce/PHP session), it fires the
+Pixel side immediately and calls a dedicated `admin-ajax.php` endpoint
+(`metatrac_contact`) for the CAPI side, sharing the same `event_id` between
+the two.
+
+### Lead (Gravity Forms submissions)
+
+Fires for every form on the site via `gform_after_submission`, which Gravity
+Forms already skips for entries flagged as spam. `custom_data.content_name`
+is set to the form's title. Unlike AddToCart, no ajax-fragment workaround is
+needed: Gravity Forms' own AJAX submission mechanism re-renders the entire
+page template (including `wp_head`/`wp_footer`) inside a hidden iframe, so
+the Pixel event queued during that request flushes normally through the
+existing footer script.
+
+**Known limitation:** if a form's confirmation is set to "Redirect to a URL"
+or "Redirect to a page," the browser navigates away right after submitting,
+so the browser Pixel call could be lost if the redirect fires before the
+footer script runs. The server-side CAPI event still fires normally either way.
+
 ## Debug mode
 
 When enabled:
@@ -71,11 +101,16 @@ When enabled:
   dedicated log file, independent of `WP_DEBUG_LOG`, at:
 
   ```
-  wp-content/uploads/metatrac-logs/debug.log
+  wp-content/uploads/metatrac-logs/debug-<random-token>.log
   ```
 
+  The random token is generated once per site and shown on the MetaTrac
+  settings page while debug mode is on. It's there because the directory's
+  `.htaccess` deny rule only works on Apache; on other servers, an
+  unpredictable filename is what keeps the log from being directly requestable.
+
   Each line includes the event name, the page it fired on, its `event_id`,
-  and its payload. The directory is locked down with a `.htaccess` deny rule.
+  and its payload.
 - CAPI calls become blocking (instead of fire-and-forget) so the HTTP
   response from Meta is also logged.
 
