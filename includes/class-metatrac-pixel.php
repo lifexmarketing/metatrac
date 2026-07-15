@@ -101,7 +101,7 @@ class Metatrac_Pixel {
 		?>
 		<script>
 		(function () {
-			var metatracQueue = <?php echo wp_json_encode( self::$queue ); ?>;
+			var metatracQueue = <?php echo wp_json_encode( self::$queue, JSON_HEX_TAG | JSON_HEX_AMP ); ?>;
 			function metatracRunQueue() {
 				metatracQueue.forEach(function (evt) {
 					if (window.metatracFireEvent) {

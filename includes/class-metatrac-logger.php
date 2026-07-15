@@ -14,6 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Metatrac_Logger {
 
 	const MAX_LOG_BYTES = 5242880; // 5MB.
+	const TOKEN_OPTION  = 'metatrac_log_token';
 
 	/**
 	 * Directory the log file lives in.
@@ -25,12 +26,32 @@ class Metatrac_Logger {
 	}
 
 	/**
+	 * A random per-site token used in the log filename. The .htaccess deny
+	 * rule below only works on Apache, so on Nginx (or any host that ignores
+	 * .htaccess) an unpredictable filename is the only thing standing between
+	 * this file and anyone who requests it directly. Generated once and
+	 * persisted, rather than derived from anything guessable.
+	 *
+	 * @return string
+	 */
+	private static function log_token() {
+		$token = get_option( self::TOKEN_OPTION );
+
+		if ( empty( $token ) || ! is_string( $token ) ) {
+			$token = wp_generate_password( 32, false, false );
+			update_option( self::TOKEN_OPTION, $token, false );
+		}
+
+		return $token;
+	}
+
+	/**
 	 * Full path to the log file.
 	 *
 	 * @return string
 	 */
 	public static function log_file_path() {
-		return self::log_dir() . 'debug.log';
+		return self::log_dir() . 'debug-' . self::log_token() . '.log';
 	}
 
 	/**

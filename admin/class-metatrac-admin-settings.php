@@ -53,13 +53,25 @@ class Metatrac_Admin_Settings {
 	 * @return array
 	 */
 	public function sanitize( $input ) {
-		$input  = is_array( $input ) ? $input : [];
-		$output = [];
+		$input   = is_array( $input ) ? $input : [];
+		$current = Metatrac_Settings::all();
+		$output  = [];
 
 		$output['pixel_id']        = isset( $input['pixel_id'] ) ? preg_replace( '/[^0-9]/', '', $input['pixel_id'] ) : '';
-		$output['access_token']   = isset( $input['access_token'] ) ? sanitize_text_field( $input['access_token'] ) : '';
 		$output['test_event_code'] = isset( $input['test_event_code'] ) ? sanitize_text_field( $input['test_event_code'] ) : '';
-		$output['github_token']   = isset( $input['github_token'] ) ? sanitize_text_field( $input['github_token'] ) : '';
+
+		// The access token and GitHub token fields render blank (see
+		// render_settings_page()) so their saved values never appear in the
+		// page HTML. That means a blank submission means "leave unchanged",
+		// not "clear it", so only overwrite when the admin actually typed
+		// something, or wipe it when the matching "clear" checkbox is ticked.
+		$output['access_token'] = ! empty( $input['clear_access_token'] )
+			? ''
+			: ( ! empty( $input['access_token'] ) ? sanitize_text_field( $input['access_token'] ) : $current['access_token'] );
+
+		$output['github_token'] = ! empty( $input['clear_github_token'] )
+			? ''
+			: ( ! empty( $input['github_token'] ) ? sanitize_text_field( $input['github_token'] ) : $current['github_token'] );
 
 		$allowed_events         = Metatrac_Settings::trackable_events();
 		$output['enabled_events'] = [];
@@ -114,7 +126,13 @@ class Metatrac_Admin_Settings {
 					<tr>
 						<th scope="row"><label for="metatrac_access_token"><?php esc_html_e( 'Conversions API Access Token', 'metatrac' ); ?></label></th>
 						<td>
-							<input type="password" id="metatrac_access_token" name="metatrac_settings[access_token]" value="<?php echo esc_attr( $settings['access_token'] ); ?>" class="regular-text" autocomplete="off" />
+							<input type="password" id="metatrac_access_token" name="metatrac_settings[access_token]" value="" placeholder="<?php echo esc_attr( $settings['access_token'] ? __( 'Saved, leave blank to keep', 'metatrac' ) : '' ); ?>" class="regular-text" autocomplete="off" />
+							<?php if ( $settings['access_token'] ) : ?>
+								<label style="display:block;margin-top:6px;">
+									<input type="checkbox" name="metatrac_settings[clear_access_token]" value="1" />
+									<?php esc_html_e( 'Clear the saved access token', 'metatrac' ); ?>
+								</label>
+							<?php endif; ?>
 							<p class="description"><?php esc_html_e( 'From Events Manager > Settings > Conversions API > Generate access token.', 'metatrac' ); ?></p>
 						</td>
 					</tr>
@@ -161,7 +179,13 @@ class Metatrac_Admin_Settings {
 					<tr>
 						<th scope="row"><label for="metatrac_github_token"><?php esc_html_e( 'GitHub Update Token', 'metatrac' ); ?></label></th>
 						<td>
-							<input type="password" id="metatrac_github_token" name="metatrac_settings[github_token]" value="<?php echo esc_attr( $settings['github_token'] ); ?>" class="regular-text" autocomplete="off" />
+							<input type="password" id="metatrac_github_token" name="metatrac_settings[github_token]" value="" placeholder="<?php echo esc_attr( $settings['github_token'] ? __( 'Saved, leave blank to keep', 'metatrac' ) : '' ); ?>" class="regular-text" autocomplete="off" />
+							<?php if ( $settings['github_token'] ) : ?>
+								<label style="display:block;margin-top:6px;">
+									<input type="checkbox" name="metatrac_settings[clear_github_token]" value="1" />
+									<?php esc_html_e( 'Clear the saved GitHub token', 'metatrac' ); ?>
+								</label>
+							<?php endif; ?>
 							<p class="description">
 								<?php esc_html_e( 'Only needed if METATRAC_GITHUB_TOKEN is not already defined in wp-config.php. A GitHub personal access token with read access to the private lifexmarketing/metatrac repo, used only to check for and install plugin updates.', 'metatrac' ); ?>
 							</p>

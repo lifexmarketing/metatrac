@@ -8,3 +8,4 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 }
 
 delete_option( 'metatrac_settings' );
+delete_option( 'metatrac_log_token' );

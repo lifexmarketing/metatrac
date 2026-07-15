@@ -54,7 +54,10 @@ function metatrac_init() {
 	$tracker = new Metatrac_WooCommerce_Tracker();
 	$tracker->init();
 
-	if ( is_admin() ) {
+	// is_admin() is also true for admin-ajax.php requests (e.g. the ajax
+	// AddToCart call tracked above), so exclude those or the update checker
+	// and admin settings would load on nearly every front-end interaction.
+	if ( is_admin() && ! wp_doing_ajax() ) {
 		require_once METATRAC_PLUGIN_PATH . 'admin/class-metatrac-admin-settings.php';
 		new Metatrac_Admin_Settings();
 

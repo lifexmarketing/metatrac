@@ -114,7 +114,7 @@ class Metatrac_WooCommerce_Tracker {
 
 		$fragments['div.metatrac-atc-fragment'] = sprintf(
 			'<div class="metatrac-atc-fragment" style="display:none;"><script>if(window.metatracFireEvent){metatracFireEvent(%s);}</script></div>',
-			wp_json_encode( $this->pending_add_to_cart_event )
+			wp_json_encode( $this->pending_add_to_cart_event, JSON_HEX_TAG | JSON_HEX_AMP )
 		);
 
 		return $fragments;
@@ -131,6 +131,10 @@ class Metatrac_WooCommerce_Tracker {
 	/**
 	 * Tracks InitiateCheckout on the checkout page (classic or block-based),
 	 * as long as it's not the order-received page and the cart isn't empty.
+	 *
+	 * Deduped per cart contents via WC's cart hash, so refreshing or
+	 * revisiting the checkout page with an unchanged cart doesn't refire the
+	 * event; a genuinely changed cart (items added/removed) fires again.
 	 */
 	public function track_initiate_checkout() {
 		if ( ! function_exists( 'is_checkout' ) || ! is_checkout() || is_order_received_page() ) {
@@ -141,7 +145,17 @@ class Metatrac_WooCommerce_Tracker {
 			return;
 		}
 
+		$cart_hash = WC()->cart->get_cart_hash();
+
+		if ( WC()->session && $cart_hash === WC()->session->get( 'metatrac_initiate_checkout_hash' ) ) {
+			return;
+		}
+
 		$this->fire_event( 'InitiateCheckout', $this->build_cart_data( WC()->cart ), Metatrac_Pixel::current_url() );
+
+		if ( WC()->session ) {
+			WC()->session->set( 'metatrac_initiate_checkout_hash', $cart_hash );
+		}
 	}
 
 	/**
