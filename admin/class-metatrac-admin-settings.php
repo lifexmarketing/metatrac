@@ -99,6 +99,7 @@ class Metatrac_Admin_Settings {
 			'AddToCart'        => __( 'Product Added to Cart (AddToCart)', 'metatrac' ),
 			'InitiateCheckout' => __( 'Checkout Started (InitiateCheckout)', 'metatrac' ),
 			'Purchase'         => __( 'Order Completed (Purchase)', 'metatrac' ),
+			'Contact'          => __( 'Phone/SMS Link Clicked (Contact), once per session', 'metatrac' ),
 		];
 	}
 
