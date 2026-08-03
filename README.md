@@ -11,9 +11,12 @@ the bundled [Plugin Update Checker](https://github.com/YahnisElsts/plugin-update
 
 ## Requirements
 
-- WooCommerce active.
 - A Meta Pixel ID and a Conversions API access token (Events Manager > Data
   Sources > your Pixel > Settings > Conversions API > Generate access token).
+- WooCommerce active, only if you want the ecommerce events (`ViewContent`,
+  `AddToCart`, `InitiateCheckout`, `Purchase`); `PageView`, `Contact`, and
+  `Lead` all work without it. On the settings screen, the ecommerce
+  checkboxes are grayed out while WooCommerce is inactive.
 - Gravity Forms active, only if you want the `Lead` event; MetaTrac still
   works fully without it, `Lead` just never fires.
 

@@ -24,6 +24,16 @@ class Metatrac_Settings {
 	}
 
 	/**
+	 * The subset of trackable_events() that require WooCommerce to be active.
+	 * PageView, Contact, and Lead all work without it.
+	 *
+	 * @return array
+	 */
+	public static function ecommerce_events() {
+		return [ 'ViewContent', 'AddToCart', 'InitiateCheckout', 'Purchase' ];
+	}
+
+	/**
 	 * Default settings values.
 	 *
 	 * @return array

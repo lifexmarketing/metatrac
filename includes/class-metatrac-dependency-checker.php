@@ -2,7 +2,10 @@
 /**
  * Class Metatrac_Dependency_Checker
  *
- * Checks if required plugins are active.
+ * Checks whether optional plugin dependencies are active. WooCommerce is
+ * only needed for the ecommerce events (ViewContent, AddToCart,
+ * InitiateCheckout, Purchase); PageView, Contact, and Lead all work without
+ * it, so this no longer gates the plugin as a whole.
  */
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -20,24 +23,13 @@ class Metatrac_Dependency_Checker {
 	}
 
 	/**
-	 * Checks if all required dependencies are met.
-	 *
-	 * @return bool
-	 */
-	public function check_dependencies() {
-		return $this->is_woocommerce_active();
-	}
-
-	/**
-	 * Displays an admin notice if dependencies are not met.
+	 * Displays an admin notice that ecommerce events won't be tracked.
 	 */
 	public function dependency_notice() {
-		if ( ! $this->is_woocommerce_active() ) {
-			?>
-			<div class="notice notice-warning is-dismissible">
-				<p><?php esc_html_e( 'MetaTrac requires WooCommerce to be installed and activated.', 'metatrac' ); ?></p>
-			</div>
-			<?php
-		}
+		?>
+		<div class="notice notice-warning is-dismissible">
+			<p><?php esc_html_e( 'MetaTrac: WooCommerce is not active, so ecommerce events (ViewContent, AddToCart, InitiateCheckout, Purchase) will not be tracked. PageView, Contact, and Lead tracking are unaffected.', 'metatrac' ); ?></p>
+		</div>
+		<?php
 	}
 }

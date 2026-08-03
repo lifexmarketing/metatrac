@@ -12,13 +12,15 @@ Tracks core WooCommerce ecommerce events and sends them to Meta via the Pixel an
 
 == Description ==
 
-MetaTrac tracks ViewContent, AddToCart, InitiateCheckout, and Purchase on a
-WooCommerce store, Contact (tel:/sms: link clicks, once per session), and
-Lead (Gravity Forms submissions, if Gravity Forms is active). Each event is
-sent to Meta twice: once from the browser via the Meta Pixel, and once from
-the server via the Conversions API, sharing an event_id so Meta deduplicates
-the pair. Which events are tracked, and whether debug logging is on, are
-configured per site under Settings > MetaTrac.
+MetaTrac tracks PageView, Contact (tel:/sms: link clicks, once per session),
+and Lead (Gravity Forms submissions, if Gravity Forms is active) on any
+WordPress site, plus ViewContent, AddToCart, InitiateCheckout, and Purchase
+if WooCommerce is active. Each event is sent to Meta twice: once from the
+browser via the Meta Pixel, and once from the server via the Conversions
+API, sharing an event_id so Meta deduplicates the pair. Which events are
+tracked, and whether debug logging is on, are configured per site under
+Settings > MetaTrac; the ecommerce events are grayed out there while
+WooCommerce is inactive.
 
 == Installation ==
 

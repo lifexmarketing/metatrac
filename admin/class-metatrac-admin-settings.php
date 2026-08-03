@@ -74,13 +74,25 @@ class Metatrac_Admin_Settings {
 			? ''
 			: ( ! empty( $input['github_token'] ) ? sanitize_text_field( $input['github_token'] ) : $current['github_token'] );
 
-		$allowed_events         = Metatrac_Settings::trackable_events();
+		$posted_events      = ( isset( $input['enabled_events'] ) && is_array( $input['enabled_events'] ) ) ? $input['enabled_events'] : [];
+		$ecommerce_events   = Metatrac_Settings::ecommerce_events();
+		$woocommerce_active = ( new Metatrac_Dependency_Checker() )->is_woocommerce_active();
+
 		$output['enabled_events'] = [];
-		if ( isset( $input['enabled_events'] ) && is_array( $input['enabled_events'] ) ) {
-			foreach ( $input['enabled_events'] as $event ) {
-				if ( in_array( $event, $allowed_events, true ) ) {
+		foreach ( Metatrac_Settings::trackable_events() as $event ) {
+			// Ecommerce event checkboxes render disabled when WooCommerce is
+			// inactive (see render_settings_page()), so browsers never submit
+			// them; keep whatever was already stored instead of treating
+			// their absence as the admin unchecking them.
+			if ( ! $woocommerce_active && in_array( $event, $ecommerce_events, true ) ) {
+				if ( in_array( $event, (array) $current['enabled_events'], true ) ) {
 					$output['enabled_events'][] = $event;
 				}
+				continue;
+			}
+
+			if ( in_array( $event, $posted_events, true ) ) {
+				$output['enabled_events'][] = $event;
 			}
 		}
 
@@ -178,13 +190,24 @@ class Metatrac_Admin_Settings {
 						<th scope="row"><?php esc_html_e( 'Events to Track', 'metatrac' ); ?></th>
 						<td>
 							<fieldset>
-								<?php foreach ( $this->event_labels() as $key => $label ) : ?>
-									<label style="display:block;margin-bottom:6px;">
-										<input type="checkbox" name="metatrac_settings[enabled_events][]" value="<?php echo esc_attr( $key ); ?>" <?php checked( in_array( $key, (array) $settings['enabled_events'], true ) ); ?> />
+								<?php
+								$woocommerce_active = ( new Metatrac_Dependency_Checker() )->is_woocommerce_active();
+								$ecommerce_events   = Metatrac_Settings::ecommerce_events();
+								foreach ( $this->event_labels() as $key => $label ) :
+									$needs_woocommerce = ! $woocommerce_active && in_array( $key, $ecommerce_events, true );
+									?>
+									<label style="display:block;margin-bottom:6px;<?php echo $needs_woocommerce ? 'color:#a7aaad;' : ''; ?>">
+										<input type="checkbox" name="metatrac_settings[enabled_events][]" value="<?php echo esc_attr( $key ); ?>" <?php checked( in_array( $key, (array) $settings['enabled_events'], true ) ); ?> <?php disabled( $needs_woocommerce ); ?> />
 										<?php echo esc_html( $label ); ?>
+										<?php if ( $needs_woocommerce ) : ?>
+											<?php esc_html_e( '(requires WooCommerce)', 'metatrac' ); ?>
+										<?php endif; ?>
 									</label>
 								<?php endforeach; ?>
 							</fieldset>
+							<?php if ( ! $woocommerce_active ) : ?>
+								<p class="description"><?php esc_html_e( 'WooCommerce is not active. PageView, Contact, and Lead are still tracked; ecommerce events will resume once WooCommerce is active.', 'metatrac' ); ?></p>
+							<?php endif; ?>
 						</td>
 					</tr>
 					<tr>
