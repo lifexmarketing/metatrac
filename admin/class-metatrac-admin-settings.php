@@ -19,6 +19,7 @@ class Metatrac_Admin_Settings {
 	public function __construct() {
 		add_action( 'admin_menu', [ $this, 'add_admin_menu' ] );
 		add_action( 'admin_init', [ $this, 'register_settings' ] );
+		add_filter( 'plugin_action_links_' . METATRAC_PLUGIN_BASENAME, [ $this, 'add_settings_link' ] );
 	}
 
 	/**
@@ -86,6 +87,34 @@ class Metatrac_Admin_Settings {
 		$output['debug_mode'] = ! empty( $input['debug_mode'] );
 
 		return $output;
+	}
+
+	/**
+	 * Adds a "Settings" link to MetaTrac's row on the Plugins screen,
+	 * inserted immediately before Deactivate rather than just prepended,
+	 * since other plugins (or "Network Activate") can add links of their
+	 * own before it.
+	 *
+	 * @param array $links Existing action links, keyed by slug.
+	 * @return array
+	 */
+	public function add_settings_link( $links ) {
+		$settings_link = sprintf(
+			'<a href="%s">%s</a>',
+			esc_url( admin_url( 'options-general.php?page=' . self::PAGE_SLUG ) ),
+			esc_html__( 'Settings', 'metatrac' )
+		);
+
+		$position = array_search( 'deactivate', array_keys( $links ), true );
+
+		if ( false === $position ) {
+			array_unshift( $links, $settings_link );
+			return $links;
+		}
+
+		return array_slice( $links, 0, $position, true )
+			+ [ 'settings' => $settings_link ]
+			+ array_slice( $links, $position, null, true );
 	}
 
 	/**

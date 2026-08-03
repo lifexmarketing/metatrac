@@ -21,6 +21,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 define( 'METATRAC_VERSION', '1.0.1' );
 define( 'METATRAC_PLUGIN_PATH', plugin_dir_path( __FILE__ ) );
 define( 'METATRAC_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
+define( 'METATRAC_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
 
 // Graph API version used for Conversions API requests. Meta deprecates versions
 // roughly every two years; bump this if Meta announces this version is sunset.
