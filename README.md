@@ -122,18 +122,16 @@ non-blocking and adds no latency to page loads.
 
 ## Installing / updating
 
-The `lifexmarketing/metatrac` GitHub repo is **private**. The bundled
-Plugin Update Checker needs a GitHub personal access token (read access to
-this repo) to check for and download updates. Set it once per site, either:
+The `lifexmarketing/metatrac` GitHub repo is **public**, so the bundled
+Plugin Update Checker works out of the box with no token needed. A GitHub
+personal access token is optional and only raises the GitHub API rate
+limit; set it once per site, either:
 
 - in `wp-config.php` (preferred — doesn't sit in the database):
   ```php
   define( 'METATRAC_GITHUB_TOKEN', 'ghp_xxxxxxxxxxxxxxxxxxxx' );
   ```
 - or in the **GitHub Update Token** field on the MetaTrac settings page.
-
-Without a token, the plugin still works fully; it just won't be able to
-check GitHub for new versions.
 
 ## Maintenance notes
 

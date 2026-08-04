@@ -84,10 +84,10 @@ add_action( 'plugins_loaded', 'metatrac_init' );
 /**
  * Wires up the GitHub-hosted plugin update checker.
  *
- * The lifexmarketing/metatrac repo is private, so update checks need a GitHub
- * personal access token with read access to it. Prefer defining
- * METATRAC_GITHUB_TOKEN in wp-config.php (not stored in the database); the
- * settings-screen field is a fallback for sites where that isn't practical.
+ * The lifexmarketing/metatrac repo is public, so update checks work without
+ * any authentication. A GitHub personal access token is optional and only
+ * raises the GitHub API rate limit; prefer defining METATRAC_GITHUB_TOKEN in
+ * wp-config.php (not stored in the database) over the settings-screen field.
  */
 function metatrac_init_update_checker() {
 	require_once METATRAC_PLUGIN_PATH . 'plugin-update-checker/plugin-update-checker.php';

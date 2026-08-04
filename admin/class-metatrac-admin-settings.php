@@ -241,7 +241,7 @@ class Metatrac_Admin_Settings {
 								</label>
 							<?php endif; ?>
 							<p class="description">
-								<?php esc_html_e( 'Only needed if METATRAC_GITHUB_TOKEN is not already defined in wp-config.php. A GitHub personal access token with read access to the private lifexmarketing/metatrac repo, used only to check for and install plugin updates.', 'metatrac' ); ?>
+								<?php esc_html_e( 'Optional. The lifexmarketing/metatrac repo is public, so update checks work without a token; only add one to raise the GitHub API rate limit on sites that check for updates often.', 'metatrac' ); ?>
 							</p>
 						</td>
 					</tr>
