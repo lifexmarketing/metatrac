@@ -4,11 +4,11 @@ Tags: woocommerce, meta, facebook, pixel, conversions api
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.1
+Stable tag: 1.0.2
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
-Tracks core WooCommerce ecommerce events and sends them to Meta via the Pixel and the Conversions API.
+Tracks PageView, Contact, and Lead events, plus WooCommerce ecommerce events when WooCommerce is active, and sends them to Meta via the Pixel and the Conversions API.
 
 == Description ==
 
@@ -32,6 +32,14 @@ WooCommerce is inactive.
 4. Choose which events to track.
 
 == Changelog ==
+
+= 1.0.2 =
+* Ecommerce events (ViewContent, AddToCart, InitiateCheckout, Purchase) are
+  now conditional on WooCommerce being active, instead of the whole plugin
+  requiring it. PageView, Contact, and Lead now track regardless. The
+  ecommerce checkboxes on the settings screen gray out while WooCommerce
+  is inactive.
+* Added a "Settings" link to MetaTrac's row on the Plugins screen.
 
 = 1.0.1 =
 * Fix: InitiateCheckout wasn't firing on stores using the block-based
