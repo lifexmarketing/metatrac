@@ -4,7 +4,7 @@ Tags: woocommerce, meta, facebook, pixel, conversions api
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.2
+Stable tag: 1.0.3
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -32,6 +32,11 @@ WooCommerce is inactive.
 4. Choose which events to track.
 
 == Changelog ==
+
+= 1.0.3 =
+* The lifexmarketing/metatrac repo is now public, so the bundled update
+  checker works without a GitHub token. The token field is still there,
+  but only needed to raise the GitHub API rate limit.
 
 = 1.0.2 =
 * Ecommerce events (ViewContent, AddToCart, InitiateCheckout, Purchase) are
