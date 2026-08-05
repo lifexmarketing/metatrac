@@ -4,7 +4,7 @@ Tags: woocommerce, meta, facebook, pixel, conversions api
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.4
+Stable tag: 1.0.5
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -32,6 +32,20 @@ WooCommerce is inactive.
 4. Choose which events to track.
 
 == Changelog ==
+
+= 1.0.5 =
+* Fixed Lead's Pixel event never firing (so Meta couldn't deduplicate it
+  against the Conversions API event) on Gravity Forms confirmations set to
+  "Redirect to a Page." The event is now carried over to the confirmation
+  page's own load instead of racing the redirect.
+* The Lead event now sends hashed email/phone (when the form has fields of
+  those types) to the Conversions API, for better match quality.
+* The Lead event now requires Gravity Forms to be active, the same way the
+  ecommerce events already require WooCommerce: the checkbox on the
+  settings screen grays out, and an admin notice appears once, when
+  Gravity Forms isn't active.
+* Every Conversions API event sent for a logged-in visitor now includes a
+  hashed external_id, for better match quality.
 
 = 1.0.4 =
 * Fixed AddToCart's Pixel event never firing (so Meta couldn't deduplicate

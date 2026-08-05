@@ -74,17 +74,23 @@ class Metatrac_Admin_Settings {
 			? ''
 			: ( ! empty( $input['github_token'] ) ? sanitize_text_field( $input['github_token'] ) : $current['github_token'] );
 
-		$posted_events      = ( isset( $input['enabled_events'] ) && is_array( $input['enabled_events'] ) ) ? $input['enabled_events'] : [];
-		$ecommerce_events   = Metatrac_Settings::ecommerce_events();
-		$woocommerce_active = ( new Metatrac_Dependency_Checker() )->is_woocommerce_active();
+		$posted_events        = ( isset( $input['enabled_events'] ) && is_array( $input['enabled_events'] ) ) ? $input['enabled_events'] : [];
+		$ecommerce_events     = Metatrac_Settings::ecommerce_events();
+		$gravity_forms_events = Metatrac_Settings::gravity_forms_events();
+		$dependency_checker   = new Metatrac_Dependency_Checker();
+		$woocommerce_active   = $dependency_checker->is_woocommerce_active();
+		$gravity_forms_active = $dependency_checker->is_gravity_forms_active();
 
 		$output['enabled_events'] = [];
 		foreach ( Metatrac_Settings::trackable_events() as $event ) {
-			// Ecommerce event checkboxes render disabled when WooCommerce is
-			// inactive (see render_settings_page()), so browsers never submit
+			$needs_woocommerce   = ! $woocommerce_active && in_array( $event, $ecommerce_events, true );
+			$needs_gravity_forms = ! $gravity_forms_active && in_array( $event, $gravity_forms_events, true );
+
+			// Checkboxes for events that need an inactive plugin render
+			// disabled (see render_settings_page()), so browsers never submit
 			// them; keep whatever was already stored instead of treating
 			// their absence as the admin unchecking them.
-			if ( ! $woocommerce_active && in_array( $event, $ecommerce_events, true ) ) {
+			if ( $needs_woocommerce || $needs_gravity_forms ) {
 				if ( in_array( $event, (array) $current['enabled_events'], true ) ) {
 					$output['enabled_events'][] = $event;
 				}
@@ -191,22 +197,32 @@ class Metatrac_Admin_Settings {
 						<td>
 							<fieldset>
 								<?php
-								$woocommerce_active = ( new Metatrac_Dependency_Checker() )->is_woocommerce_active();
-								$ecommerce_events   = Metatrac_Settings::ecommerce_events();
+								$dependency_checker   = new Metatrac_Dependency_Checker();
+								$woocommerce_active   = $dependency_checker->is_woocommerce_active();
+								$gravity_forms_active = $dependency_checker->is_gravity_forms_active();
+								$ecommerce_events     = Metatrac_Settings::ecommerce_events();
+								$gravity_forms_events = Metatrac_Settings::gravity_forms_events();
 								foreach ( $this->event_labels() as $key => $label ) :
-									$needs_woocommerce = ! $woocommerce_active && in_array( $key, $ecommerce_events, true );
+									$needs_woocommerce   = ! $woocommerce_active && in_array( $key, $ecommerce_events, true );
+									$needs_gravity_forms = ! $gravity_forms_active && in_array( $key, $gravity_forms_events, true );
+									$needs_plugin        = $needs_woocommerce || $needs_gravity_forms;
 									?>
-									<label style="display:block;margin-bottom:6px;<?php echo $needs_woocommerce ? 'color:#a7aaad;' : ''; ?>">
-										<input type="checkbox" name="metatrac_settings[enabled_events][]" value="<?php echo esc_attr( $key ); ?>" <?php checked( in_array( $key, (array) $settings['enabled_events'], true ) ); ?> <?php disabled( $needs_woocommerce ); ?> />
+									<label style="display:block;margin-bottom:6px;<?php echo $needs_plugin ? 'color:#a7aaad;' : ''; ?>">
+										<input type="checkbox" name="metatrac_settings[enabled_events][]" value="<?php echo esc_attr( $key ); ?>" <?php checked( in_array( $key, (array) $settings['enabled_events'], true ) ); ?> <?php disabled( $needs_plugin ); ?> />
 										<?php echo esc_html( $label ); ?>
 										<?php if ( $needs_woocommerce ) : ?>
 											<?php esc_html_e( '(requires WooCommerce)', 'metatrac' ); ?>
+										<?php elseif ( $needs_gravity_forms ) : ?>
+											<?php esc_html_e( '(requires Gravity Forms)', 'metatrac' ); ?>
 										<?php endif; ?>
 									</label>
 								<?php endforeach; ?>
 							</fieldset>
 							<?php if ( ! $woocommerce_active ) : ?>
-								<p class="description"><?php esc_html_e( 'WooCommerce is not active. PageView, Contact, and Lead are still tracked; ecommerce events will resume once WooCommerce is active.', 'metatrac' ); ?></p>
+								<p class="description"><?php esc_html_e( 'WooCommerce is not active. PageView and Contact are still tracked; ecommerce events will resume once WooCommerce is active.', 'metatrac' ); ?></p>
+							<?php endif; ?>
+							<?php if ( ! $gravity_forms_active ) : ?>
+								<p class="description"><?php esc_html_e( 'Gravity Forms is not active. Lead tracking will resume once Gravity Forms is active.', 'metatrac' ); ?></p>
 							<?php endif; ?>
 						</td>
 					</tr>

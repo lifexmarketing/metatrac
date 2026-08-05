@@ -3,7 +3,7 @@
  * Plugin Name: MetaTrac
  * Plugin URI: https://www.lifexmarketing.com/metatrac/
  * Description: Tracks PageView, Contact, and Lead events out of the box, plus WooCommerce ecommerce events (ViewContent, AddToCart, InitiateCheckout, Purchase) when WooCommerce is active, and sends them to Meta via both the Pixel (browser) and the Conversions API (server), with per-site event selection and a debug mode for console + log-file visibility.
- * Version: 1.0.4
+ * Version: 1.0.5
  * Author: LifeX Marketing
  * Author URI: https://www.lifexmarketing.com
  * License: GPL-2.0+
@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define plugin constants for easy referencing.
-define( 'METATRAC_VERSION', '1.0.4' );
+define( 'METATRAC_VERSION', '1.0.5' );
 define( 'METATRAC_PLUGIN_PATH', plugin_dir_path( __FILE__ ) );
 define( 'METATRAC_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'METATRAC_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
@@ -53,10 +53,12 @@ function metatrac_init() {
 	$gravity_forms_tracker->init();
 
 	// The ecommerce events (ViewContent, AddToCart, InitiateCheckout,
-	// Purchase) only make sense with WooCommerce active; PageView, Contact,
-	// and Lead are tracked above regardless.
-	$dependency_checker = new Metatrac_Dependency_Checker();
-	$woocommerce_active = $dependency_checker->is_woocommerce_active();
+	// Purchase) only make sense with WooCommerce active, and Lead only makes
+	// sense with Gravity Forms active; PageView and Contact are tracked above
+	// regardless.
+	$dependency_checker   = new Metatrac_Dependency_Checker();
+	$woocommerce_active   = $dependency_checker->is_woocommerce_active();
+	$gravity_forms_active = $dependency_checker->is_gravity_forms_active();
 
 	if ( $woocommerce_active ) {
 		require_once METATRAC_PLUGIN_PATH . 'includes/class-metatrac-woocommerce-tracker.php';
@@ -72,11 +74,19 @@ function metatrac_init() {
 		require_once METATRAC_PLUGIN_PATH . 'admin/class-metatrac-admin-settings.php';
 		new Metatrac_Admin_Settings();
 
-		// Only ever shown once, on the MetaTrac settings page itself, not on
-		// every wp-admin screen; see Metatrac_Dependency_Checker::is_notice_shown().
-		if ( ! $woocommerce_active && ! $dependency_checker->is_notice_shown()
-			&& isset( $_GET['page'] ) && Metatrac_Admin_Settings::PAGE_SLUG === $_GET['page'] ) {
-			add_action( 'admin_notices', [ $dependency_checker, 'dependency_notice' ] );
+		// Each notice is only ever shown once, on the MetaTrac settings page
+		// itself, not on every wp-admin screen; see
+		// Metatrac_Dependency_Checker::is_notice_shown().
+		$on_settings_page = isset( $_GET['page'] ) && Metatrac_Admin_Settings::PAGE_SLUG === $_GET['page'];
+
+		if ( $on_settings_page && ! $woocommerce_active
+			&& ! $dependency_checker->is_notice_shown( Metatrac_Dependency_Checker::WOOCOMMERCE_NOTICE_SHOWN_OPTION ) ) {
+			add_action( 'admin_notices', [ $dependency_checker, 'woocommerce_notice' ] );
+		}
+
+		if ( $on_settings_page && ! $gravity_forms_active
+			&& ! $dependency_checker->is_notice_shown( Metatrac_Dependency_Checker::GRAVITY_FORMS_NOTICE_SHOWN_OPTION ) ) {
+			add_action( 'admin_notices', [ $dependency_checker, 'gravity_forms_notice' ] );
 		}
 
 		metatrac_init_update_checker();

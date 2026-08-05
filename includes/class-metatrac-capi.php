@@ -73,7 +73,7 @@ class Metatrac_CAPI {
 
 	/**
 	 * Builds the user_data object: cookies/IP/UA always, plus hashed
-	 * email/phone when available, for better Meta match quality.
+	 * email/phone/external_id when available, for better Meta match quality.
 	 *
 	 * @param array $extra [ 'email' => ..., 'phone' => ... ].
 	 * @return array
@@ -111,6 +111,12 @@ class Metatrac_CAPI {
 			if ( $digits ) {
 				$data['ph'] = $this->hash( $digits );
 			}
+		}
+
+		// A stable identifier for logged-in customers, unlike fbp/fbc which
+		// reset with cookies/devices; applies to any event, not just Purchase.
+		if ( is_user_logged_in() ) {
+			$data['external_id'] = $this->hash( (string) get_current_user_id() );
 		}
 
 		return $data;

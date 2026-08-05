@@ -25,12 +25,20 @@ class Metatrac_Settings {
 
 	/**
 	 * The subset of trackable_events() that require WooCommerce to be active.
-	 * PageView, Contact, and Lead all work without it.
 	 *
 	 * @return array
 	 */
 	public static function ecommerce_events() {
 		return [ 'ViewContent', 'AddToCart', 'InitiateCheckout', 'Purchase' ];
+	}
+
+	/**
+	 * The subset of trackable_events() that require Gravity Forms to be active.
+	 *
+	 * @return array
+	 */
+	public static function gravity_forms_events() {
+		return [ 'Lead' ];
 	}
 
 	/**
