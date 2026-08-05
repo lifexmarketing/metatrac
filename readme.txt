@@ -4,7 +4,7 @@ Tags: woocommerce, meta, facebook, pixel, conversions api
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.3
+Stable tag: 1.0.4
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -32,6 +32,14 @@ WooCommerce is inactive.
 4. Choose which events to track.
 
 == Changelog ==
+
+= 1.0.4 =
+* Fixed AddToCart's Pixel event never firing (so Meta couldn't deduplicate
+  it against the Conversions API event) on stores with WooCommerce >
+  Settings > Products > "Redirect to the cart page after successful
+  addition" enabled. That setting sends the browser straight to the cart
+  page before the Pixel call could run, so the event is now carried over
+  in the session and fired on the next page load instead.
 
 = 1.0.3 =
 * The lifexmarketing/metatrac repo is now public, so the bundled update

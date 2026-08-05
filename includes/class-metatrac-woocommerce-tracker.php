@@ -10,9 +10,19 @@
  * reload the page, so there's no server-rendered page for the browser Pixel
  * call to live on. We solve that with the woocommerce_add_to_cart_fragments
  * filter below, which is the same technique used by GTM/analytics plugins to
- * run JS after an ajax add-to-cart completes. If a theme disables ajax add
- * to cart (redirecting to the cart page instead), the Conversions API side
- * still fires; only the browser Pixel call for that specific add is skipped.
+ * run JS after an ajax add-to-cart completes.
+ *
+ * That trick doesn't work at all, though, when WooCommerce > Settings >
+ * Products > "Redirect to the cart page after successful addition" is
+ * enabled: WooCommerce's own JS checks that setting before it ever touches
+ * the ajax response's fragments and just navigates straight to the cart
+ * page, and a classic (non-ajax) submit does the same via a server-side
+ * redirect before this request ever reaches wp_footer. The Conversions API
+ * call already went out by then, so without a fallback the Pixel side of
+ * AddToCart would never fire and Meta can't dedupe the two. See
+ * is_redirect_after_add(), track_add_to_cart(), and
+ * replay_pending_add_to_cart() for how the event is carried over the
+ * session to the next page load (the cart page) in that case.
  */
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -40,6 +50,7 @@ class Metatrac_WooCommerce_Tracker {
 			add_action( 'woocommerce_add_to_cart', [ $this, 'track_add_to_cart' ], 10, 6 );
 			add_filter( 'woocommerce_add_to_cart_fragments', [ $this, 'add_to_cart_fragment' ] );
 			add_action( 'wp_footer', [ $this, 'render_add_to_cart_placeholder' ], 5 );
+			add_action( 'wp', [ $this, 'replay_pending_add_to_cart' ] );
 		}
 
 		if ( Metatrac_Settings::is_event_enabled( 'InitiateCheckout' ) ) {
@@ -91,6 +102,24 @@ class Metatrac_WooCommerce_Tracker {
 		// sends the CAPI copy, and logs it.
 		$event_id = Metatrac_Pixel::fire_event( 'AddToCart', $custom_data, $page_url );
 
+		if ( $this->is_redirect_after_add() ) {
+			// This request (or the ajax response it returns) will never
+			// render a footer the Pixel side could fire from; see the class
+			// docblock. Stash it in the session for replay_pending_add_to_cart()
+			// to pick up on the next page load instead.
+			if ( WC()->session ) {
+				WC()->session->set(
+					'metatrac_pending_add_to_cart',
+					[
+						'name'   => 'AddToCart',
+						'params' => $custom_data,
+						'id'     => $event_id,
+					]
+				);
+			}
+			return;
+		}
+
 		// Also stash it so the ajax fragment handler below can push it to the
 		// browser immediately, in case this request never renders a footer.
 		$this->pending_add_to_cart_event = [
@@ -98,6 +127,38 @@ class Metatrac_WooCommerce_Tracker {
 			'params' => $custom_data,
 			'id'     => $event_id,
 		];
+	}
+
+	/**
+	 * Whether WooCommerce > Settings > Products > "Redirect to the cart page
+	 * after successful addition" is enabled.
+	 *
+	 * @return bool
+	 */
+	private function is_redirect_after_add() {
+		return 'yes' === get_option( 'woocommerce_cart_redirect_after_add' );
+	}
+
+	/**
+	 * Fires the Pixel side of an AddToCart event that was stashed in the
+	 * session because the request that created it was about to redirect
+	 * away before a footer could render. Runs on every front-end page load,
+	 * so it picks the event up on whichever page the shopper lands on next
+	 * (normally the cart page). The matching CAPI event, sharing the same
+	 * event_id, was already sent in track_add_to_cart().
+	 */
+	public function replay_pending_add_to_cart() {
+		if ( ! WC()->session ) {
+			return;
+		}
+
+		$pending = WC()->session->get( 'metatrac_pending_add_to_cart' );
+		if ( ! $pending ) {
+			return;
+		}
+
+		WC()->session->__unset( 'metatrac_pending_add_to_cart' );
+		Metatrac_Pixel::queue_event( $pending['name'], $pending['params'], $pending['id'] );
 	}
 
 	/**
