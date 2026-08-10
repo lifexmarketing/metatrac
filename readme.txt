@@ -4,7 +4,7 @@ Tags: woocommerce, meta, facebook, pixel, conversions api
 Requires at least: 6.0
 Tested up to: 7.0.2
 Requires PHP: 7.4
-Stable tag: 1.0.6
+Stable tag: 1.0.7
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -32,6 +32,14 @@ WooCommerce is inactive.
 4. Choose which events to track.
 
 == Changelog ==
+
+= 1.0.7 =
+* Fixed "Update failed: The plugin is at the latest version" when updating
+  from the Plugins screen's "Update Now" link. That link installs over
+  admin-ajax.php, which the update checker's setup was being skipped for,
+  so WordPress had no way to know a newer version existed on that specific
+  request. Updating from Dashboard > Updates already worked, since that
+  page does a normal (non-ajax) request.
 
 = 1.0.6 =
 * Removed the GitHub Update Token field: the lifexmarketing/metatrac repo
