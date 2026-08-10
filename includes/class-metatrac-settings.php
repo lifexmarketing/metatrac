@@ -51,7 +51,6 @@ class Metatrac_Settings {
 			'pixel_id'        => '',
 			'access_token'    => '',
 			'test_event_code' => '',
-			'github_token'    => '',
 			'enabled_events'  => self::trackable_events(),
 			'debug_mode'      => false,
 		];

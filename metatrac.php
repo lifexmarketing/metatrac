@@ -3,7 +3,7 @@
  * Plugin Name: MetaTrac
  * Plugin URI: https://www.lifexmarketing.com/metatrac/
  * Description: Tracks PageView, Contact, and Lead events out of the box, plus WooCommerce ecommerce events (ViewContent, AddToCart, InitiateCheckout, Purchase) when WooCommerce is active, and sends them to Meta via both the Pixel (browser) and the Conversions API (server), with per-site event selection and a debug mode for console + log-file visibility.
- * Version: 1.0.5
+ * Version: 1.0.6
  * Author: LifeX Marketing
  * Author URI: https://www.lifexmarketing.com
  * License: GPL-2.0+
@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define plugin constants for easy referencing.
-define( 'METATRAC_VERSION', '1.0.5' );
+define( 'METATRAC_VERSION', '1.0.6' );
 define( 'METATRAC_PLUGIN_PATH', plugin_dir_path( __FILE__ ) );
 define( 'METATRAC_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'METATRAC_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
@@ -98,22 +98,14 @@ add_action( 'plugins_loaded', 'metatrac_init' );
  * Wires up the GitHub-hosted plugin update checker.
  *
  * The lifexmarketing/metatrac repo is public, so update checks work without
- * any authentication. A GitHub personal access token is optional and only
- * raises the GitHub API rate limit; prefer defining METATRAC_GITHUB_TOKEN in
- * wp-config.php (not stored in the database) over the settings-screen field.
+ * any authentication.
  */
 function metatrac_init_update_checker() {
 	require_once METATRAC_PLUGIN_PATH . 'plugin-update-checker/plugin-update-checker.php';
 
-	$update_checker = \YahnisElsts\PluginUpdateChecker\v5\PucFactory::buildUpdateChecker(
+	\YahnisElsts\PluginUpdateChecker\v5\PucFactory::buildUpdateChecker(
 		'https://github.com/lifexmarketing/metatrac',
 		__FILE__,
 		'metatrac'
 	);
-
-	$github_token = defined( 'METATRAC_GITHUB_TOKEN' ) ? METATRAC_GITHUB_TOKEN : Metatrac_Settings::get( 'github_token' );
-
-	if ( ! empty( $github_token ) && method_exists( $update_checker, 'setAuthentication' ) ) {
-		$update_checker->setAuthentication( $github_token );
-	}
 }

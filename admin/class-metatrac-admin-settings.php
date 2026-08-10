@@ -61,18 +61,14 @@ class Metatrac_Admin_Settings {
 		$output['pixel_id']        = isset( $input['pixel_id'] ) ? preg_replace( '/[^0-9]/', '', $input['pixel_id'] ) : '';
 		$output['test_event_code'] = isset( $input['test_event_code'] ) ? sanitize_text_field( $input['test_event_code'] ) : '';
 
-		// The access token and GitHub token fields render blank (see
-		// render_settings_page()) so their saved values never appear in the
-		// page HTML. That means a blank submission means "leave unchanged",
-		// not "clear it", so only overwrite when the admin actually typed
-		// something, or wipe it when the matching "clear" checkbox is ticked.
+		// The access token field renders blank (see render_settings_page())
+		// so its saved value never appears in the page HTML. That means a
+		// blank submission means "leave unchanged", not "clear it", so only
+		// overwrite when the admin actually typed something, or wipe it when
+		// the "clear" checkbox is ticked.
 		$output['access_token'] = ! empty( $input['clear_access_token'] )
 			? ''
 			: ( ! empty( $input['access_token'] ) ? sanitize_text_field( $input['access_token'] ) : $current['access_token'] );
-
-		$output['github_token'] = ! empty( $input['clear_github_token'] )
-			? ''
-			: ( ! empty( $input['github_token'] ) ? sanitize_text_field( $input['github_token'] ) : $current['github_token'] );
 
 		$posted_events        = ( isset( $input['enabled_events'] ) && is_array( $input['enabled_events'] ) ) ? $input['enabled_events'] : [];
 		$ecommerce_events     = Metatrac_Settings::ecommerce_events();
@@ -244,21 +240,6 @@ class Metatrac_Admin_Settings {
 									?>
 								</p>
 							<?php endif; ?>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><label for="metatrac_github_token"><?php esc_html_e( 'GitHub Update Token', 'metatrac' ); ?></label></th>
-						<td>
-							<input type="password" id="metatrac_github_token" name="metatrac_settings[github_token]" value="" placeholder="<?php echo esc_attr( $settings['github_token'] ? __( 'Saved, leave blank to keep', 'metatrac' ) : '' ); ?>" class="regular-text" autocomplete="off" />
-							<?php if ( $settings['github_token'] ) : ?>
-								<label style="display:block;margin-top:6px;">
-									<input type="checkbox" name="metatrac_settings[clear_github_token]" value="1" />
-									<?php esc_html_e( 'Clear the saved GitHub token', 'metatrac' ); ?>
-								</label>
-							<?php endif; ?>
-							<p class="description">
-								<?php esc_html_e( 'Optional. The lifexmarketing/metatrac repo is public, so update checks work without a token; only add one to raise the GitHub API rate limit on sites that check for updates often.', 'metatrac' ); ?>
-							</p>
 						</td>
 					</tr>
 				</table>
