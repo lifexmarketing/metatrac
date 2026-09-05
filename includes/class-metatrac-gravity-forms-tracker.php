@@ -59,6 +59,12 @@ class Metatrac_Gravity_Forms_Tracker {
 	 * @param array $form  Gravity Forms form.
 	 */
 	public function track_lead( $entry, $form ) {
+		$form_id = isset( $form['id'] ) ? (int) $form['id'] : 0;
+
+		if ( ! Metatrac_Settings::is_lead_form_tracked( $form_id ) ) {
+			return;
+		}
+
 		$custom_data = [
 			'content_name' => isset( $form['title'] ) ? $form['title'] : '',
 		];

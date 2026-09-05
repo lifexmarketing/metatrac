@@ -98,9 +98,38 @@ class Metatrac_Admin_Settings {
 			}
 		}
 
+		// Same reasoning as the enabled_events gate above: the form-selector
+		// fields only render (and so only ever get submitted) when Gravity
+		// Forms is active, so an inactive site keeps whatever was last saved.
+		if ( $gravity_forms_active ) {
+			$output['lead_form_mode'] = ( isset( $input['lead_form_mode'] ) && 'selected' === $input['lead_form_mode'] ) ? 'selected' : 'all';
+
+			$posted_form_ids         = ( isset( $input['lead_form_ids'] ) && is_array( $input['lead_form_ids'] ) ) ? array_map( 'intval', $input['lead_form_ids'] ) : [];
+			$active_form_ids         = wp_list_pluck( $this->active_gravity_forms(), 'id' );
+			$output['lead_form_ids'] = array_values( array_intersect( $posted_form_ids, array_map( 'intval', $active_form_ids ) ) );
+		} else {
+			$output['lead_form_mode'] = $current['lead_form_mode'];
+			$output['lead_form_ids']  = $current['lead_form_ids'];
+		}
+
 		$output['debug_mode'] = ! empty( $input['debug_mode'] );
 
 		return $output;
+	}
+
+	/**
+	 * The site's active, non-trashed Gravity Forms, for the Lead form
+	 * selector. Empty when Gravity Forms isn't active.
+	 *
+	 * @return array Gravity Forms form arrays (each with at least 'id', 'title').
+	 */
+	private function active_gravity_forms() {
+		if ( ! class_exists( 'GFAPI' ) ) {
+			return [];
+		}
+
+		$forms = GFAPI::get_forms( true, false );
+		return is_array( $forms ) ? $forms : [];
 	}
 
 	/**
@@ -204,7 +233,7 @@ class Metatrac_Admin_Settings {
 									$needs_plugin        = $needs_woocommerce || $needs_gravity_forms;
 									?>
 									<label style="display:block;margin-bottom:6px;<?php echo $needs_plugin ? 'color:#a7aaad;' : ''; ?>">
-										<input type="checkbox" name="metatrac_settings[enabled_events][]" value="<?php echo esc_attr( $key ); ?>" <?php checked( in_array( $key, (array) $settings['enabled_events'], true ) ); ?> <?php disabled( $needs_plugin ); ?> />
+										<input type="checkbox" <?php echo ( 'Lead' === $key ) ? 'id="metatrac_event_lead"' : ''; ?> name="metatrac_settings[enabled_events][]" value="<?php echo esc_attr( $key ); ?>" <?php checked( in_array( $key, (array) $settings['enabled_events'], true ) ); ?> <?php disabled( $needs_plugin ); ?> />
 										<?php echo esc_html( $label ); ?>
 										<?php if ( $needs_woocommerce ) : ?>
 											<?php esc_html_e( '(requires WooCommerce)', 'metatrac' ); ?>
@@ -212,6 +241,35 @@ class Metatrac_Admin_Settings {
 											<?php esc_html_e( '(requires Gravity Forms)', 'metatrac' ); ?>
 										<?php endif; ?>
 									</label>
+									<?php if ( 'Lead' === $key && $gravity_forms_active ) : ?>
+										<?php
+										$active_forms   = $this->active_gravity_forms();
+										$lead_enabled   = in_array( 'Lead', (array) $settings['enabled_events'], true );
+										$selected_forms = array_map( 'intval', (array) $settings['lead_form_ids'] );
+										?>
+										<div id="metatrac_lead_form_selector" style="margin:0 0 14px 24px;<?php echo $lead_enabled ? '' : 'display:none;'; ?>">
+											<label style="display:block;margin-bottom:4px;">
+												<input type="radio" name="metatrac_settings[lead_form_mode]" value="all" <?php checked( 'selected' !== $settings['lead_form_mode'] ); ?> />
+												<?php esc_html_e( 'All active Gravity Forms', 'metatrac' ); ?>
+											</label>
+											<label style="display:block;">
+												<input type="radio" name="metatrac_settings[lead_form_mode]" value="selected" <?php checked( 'selected' === $settings['lead_form_mode'] ); ?> />
+												<?php esc_html_e( 'Only these forms:', 'metatrac' ); ?>
+											</label>
+											<div style="margin:4px 0 0 24px;">
+												<?php if ( empty( $active_forms ) ) : ?>
+													<p class="description"><?php esc_html_e( 'No active Gravity Forms found.', 'metatrac' ); ?></p>
+												<?php else : ?>
+													<?php foreach ( $active_forms as $form ) : ?>
+														<label style="display:block;">
+															<input type="checkbox" name="metatrac_settings[lead_form_ids][]" value="<?php echo esc_attr( $form['id'] ); ?>" <?php checked( in_array( (int) $form['id'], $selected_forms, true ) ); ?> />
+															<?php echo esc_html( $form['title'] ); ?>
+														</label>
+													<?php endforeach; ?>
+												<?php endif; ?>
+											</div>
+										</div>
+									<?php endif; ?>
 								<?php endforeach; ?>
 							</fieldset>
 							<?php if ( ! $woocommerce_active ) : ?>
@@ -246,6 +304,19 @@ class Metatrac_Admin_Settings {
 				<?php submit_button(); ?>
 			</form>
 		</div>
+		<?php if ( $gravity_forms_active ) : ?>
+			<script>
+			( function () {
+				var leadCheckbox = document.getElementById( 'metatrac_event_lead' );
+				var selector     = document.getElementById( 'metatrac_lead_form_selector' );
+				if ( leadCheckbox && selector ) {
+					leadCheckbox.addEventListener( 'change', function () {
+						selector.style.display = leadCheckbox.checked ? '' : 'none';
+					} );
+				}
+			} )();
+			</script>
+		<?php endif; ?>
 		<?php
 	}
 }

@@ -52,6 +52,8 @@ class Metatrac_Settings {
 			'access_token'    => '',
 			'test_event_code' => '',
 			'enabled_events'  => self::trackable_events(),
+			'lead_form_mode'  => 'all',
+			'lead_form_ids'   => [],
 			'debug_mode'      => false,
 		];
 	}
@@ -89,6 +91,23 @@ class Metatrac_Settings {
 	public static function is_event_enabled( $event ) {
 		$events = self::get( 'enabled_events' );
 		return is_array( $events ) && in_array( $event, $events, true );
+	}
+
+	/**
+	 * Whether a specific Gravity Forms form should fire the Lead event, given
+	 * the site's Lead form selection. When 'lead_form_mode' is 'all' (the
+	 * default, matching pre-1.1.0 behavior), every form qualifies.
+	 *
+	 * @param int $form_id Gravity Forms form ID.
+	 * @return bool
+	 */
+	public static function is_lead_form_tracked( $form_id ) {
+		if ( 'selected' !== self::get( 'lead_form_mode' ) ) {
+			return true;
+		}
+
+		$form_ids = self::get( 'lead_form_ids' );
+		return is_array( $form_ids ) && in_array( (int) $form_id, $form_ids, true );
 	}
 
 	/**

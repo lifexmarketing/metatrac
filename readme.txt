@@ -4,7 +4,7 @@ Tags: woocommerce, meta, facebook, pixel, conversions api
 Requires at least: 6.0
 Tested up to: 7.0.2
 Requires PHP: 7.4
-Stable tag: 1.0.7
+Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -32,6 +32,14 @@ WooCommerce is inactive.
 4. Choose which events to track.
 
 == Changelog ==
+
+= 1.1.0 =
+* Lead's settings-screen checkbox can now be narrowed to specific Gravity
+  Forms instead of only an all-or-nothing site-wide toggle: "Events to
+  Track > Lead" reveals a list of the site's active forms with an "All
+  active Gravity Forms" / "Only these forms" choice, so a form (e.g. a
+  newsletter signup) can be excluded from Lead without disabling Lead
+  tracking entirely.
 
 = 1.0.7 =
 * Fixed "Update failed: The plugin is at the latest version" when updating

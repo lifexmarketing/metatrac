@@ -51,7 +51,7 @@ the browser and server copies:
 | `InitiateCheckout`  | Checkout page load, if the cart isn't empty; deduped per cart contents so refreshing/revisiting an unchanged cart doesn't refire it |
 | `Purchase`          | Order-received ("thank you") page, once per order        |
 | `Contact`           | First click/tap on a `tel:` or `sms:` link anywhere on the site, once per browser session |
-| `Lead`              | Any Gravity Forms submission (`gform_after_submission`), site-wide |
+| `Lead`              | A Gravity Forms submission (`gform_after_submission`), for the forms selected in Lead's settings (all active forms by default) |
 
 ### AddToCart and ajax carts
 
@@ -81,13 +81,19 @@ the two.
 
 ### Lead (Gravity Forms submissions)
 
-Fires for every form on the site via `gform_after_submission`, which Gravity
-Forms already skips for entries flagged as spam. `custom_data.content_name`
-is set to the form's title. Unlike AddToCart, no ajax-fragment workaround is
-needed: Gravity Forms' own AJAX submission mechanism re-renders the entire
-page template (including `wp_head`/`wp_footer`) inside a hidden iframe, so
-the Pixel event queued during that request flushes normally through the
-existing footer script.
+Fires via `gform_after_submission`, which Gravity Forms already skips for
+entries flagged as spam. `custom_data.content_name` is set to the form's
+title. Unlike AddToCart, no ajax-fragment workaround is needed: Gravity
+Forms' own AJAX submission mechanism re-renders the entire page template
+(including `wp_head`/`wp_footer`) inside a hidden iframe, so the Pixel event
+queued during that request flushes normally through the existing footer
+script.
+
+By default, every active form on the site fires Lead. The MetaTrac settings
+screen (Settings > MetaTrac > Events to Track > Lead) can instead be
+switched to "Only these forms," listing every active Gravity Form so
+specific forms (e.g. a newsletter signup) can be excluded from Lead without
+disabling Lead tracking site-wide.
 
 **Known limitation:** if a form's confirmation is set to "Redirect to a URL"
 or "Redirect to a page," the browser navigates away right after submitting,
