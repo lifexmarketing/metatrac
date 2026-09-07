@@ -42,6 +42,37 @@ class Metatrac_Settings {
 	}
 
 	/**
+	 * Meta's full standard event list, selectable for the Page Events
+	 * feature (any published page can be assigned one, firing it on page
+	 * load): https://www.facebook.com/business/help/402791146561655?id=1205376682832142
+	 * PageView is excluded since MetaTrac already fires it automatically on
+	 * every page load.
+	 *
+	 * @return array
+	 */
+	public static function standard_events() {
+		return [
+			'AddPaymentInfo',
+			'AddToCart',
+			'AddToWishlist',
+			'CompleteRegistration',
+			'Contact',
+			'CustomizeProduct',
+			'Donate',
+			'FindLocation',
+			'InitiateCheckout',
+			'Lead',
+			'Purchase',
+			'Schedule',
+			'Search',
+			'StartTrial',
+			'SubmitApplication',
+			'Subscribe',
+			'ViewContent',
+		];
+	}
+
+	/**
 	 * Default settings values.
 	 *
 	 * @return array
@@ -55,6 +86,7 @@ class Metatrac_Settings {
 			'lead_form_mode'  => 'all',
 			'lead_form_ids'   => [],
 			'contact_mailto'  => false,
+			'page_events'     => [],
 			'debug_mode'      => false,
 		];
 	}
@@ -92,6 +124,23 @@ class Metatrac_Settings {
 	public static function is_event_enabled( $event ) {
 		$events = self::get( 'enabled_events' );
 		return is_array( $events ) && in_array( $event, $events, true );
+	}
+
+	/**
+	 * The standard Meta event a specific page is configured to fire on page
+	 * load, per the Page Events settings, or '' if that page has no mapping.
+	 *
+	 * @param int $page_id Page ID.
+	 * @return string
+	 */
+	public static function page_view_event( $page_id ) {
+		$page_events = self::get( 'page_events' );
+		if ( ! is_array( $page_events ) || ! isset( $page_events[ (int) $page_id ] ) ) {
+			return '';
+		}
+
+		$event = $page_events[ (int) $page_id ];
+		return in_array( $event, self::standard_events(), true ) ? $event : '';
 	}
 
 	/**

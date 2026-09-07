@@ -114,9 +114,53 @@ class Metatrac_Admin_Settings {
 
 		$output['contact_mailto'] = ! empty( $input['contact_mailto'] );
 
+		// Posted as a list of {page_id, event} rows (see render_settings_page()'s
+		// repeater), collapsed here into the stored page_id => event map.
+		// Validated against the site's actual published pages and Meta's
+		// actual standard event list, rather than trusted as posted, since
+		// both are attacker-controllable form values. A page picked in more
+		// than one row keeps whichever row appears last.
+		$posted_rows        = ( isset( $input['page_events'] ) && is_array( $input['page_events'] ) ) ? $input['page_events'] : [];
+		$published_page_ids = wp_list_pluck( $this->published_pages(), 'ID' );
+		$standard_events    = Metatrac_Settings::standard_events();
+
+		$output['page_events'] = [];
+		foreach ( $posted_rows as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+
+			$page_id = ! empty( $row['page_id'] ) ? (int) $row['page_id'] : 0;
+			$event   = isset( $row['event'] ) ? $row['event'] : '';
+
+			if ( ! in_array( $page_id, $published_page_ids, true ) || ! in_array( $event, $standard_events, true ) ) {
+				continue;
+			}
+
+			$output['page_events'][ $page_id ] = $event;
+		}
+
 		$output['debug_mode'] = ! empty( $input['debug_mode'] );
 
 		return $output;
+	}
+
+	/**
+	 * Every published page on the site, for the Page Events selector.
+	 *
+	 * @return array WP_Post objects.
+	 */
+	private function published_pages() {
+		return get_posts(
+			[
+				'post_type'     => 'page',
+				'post_status'   => 'publish',
+				'numberposts'   => -1,
+				'orderby'       => 'title',
+				'order'         => 'ASC',
+				'no_found_rows' => true,
+			]
+		);
 	}
 
 	/**
@@ -177,6 +221,74 @@ class Metatrac_Admin_Settings {
 			'FindLocation'     => __( 'Google Maps Link Clicked (FindLocation), once per session', 'metatrac' ),
 			'Lead'             => __( 'Gravity Forms Submitted (Lead)', 'metatrac' ),
 		];
+	}
+
+	/**
+	 * Human-readable labels for every selectable Page Events standard event
+	 * (Metatrac_Settings::standard_events()), grouped roughly the way Meta's
+	 * own docs group them.
+	 *
+	 * @return array
+	 */
+	private function standard_event_labels() {
+		return [
+			'Lead'                 => __( 'Lead Submitted (Lead)', 'metatrac' ),
+			'Contact'              => __( 'Contact (Contact)', 'metatrac' ),
+			'FindLocation'         => __( 'Location Found (FindLocation)', 'metatrac' ),
+			'Schedule'             => __( 'Appointment Scheduled (Schedule)', 'metatrac' ),
+			'SubmitApplication'    => __( 'Application Submitted (SubmitApplication)', 'metatrac' ),
+			'CompleteRegistration' => __( 'Registration Completed (CompleteRegistration)', 'metatrac' ),
+			'StartTrial'           => __( 'Trial Started (StartTrial)', 'metatrac' ),
+			'Subscribe'            => __( 'Subscription Started (Subscribe)', 'metatrac' ),
+			'ViewContent'          => __( 'Content Viewed (ViewContent)', 'metatrac' ),
+			'Search'               => __( 'Search Performed (Search)', 'metatrac' ),
+			'AddToCart'            => __( 'Added to Cart (AddToCart)', 'metatrac' ),
+			'AddToWishlist'        => __( 'Added to Wishlist (AddToWishlist)', 'metatrac' ),
+			'InitiateCheckout'     => __( 'Checkout Started (InitiateCheckout)', 'metatrac' ),
+			'AddPaymentInfo'       => __( 'Payment Info Added (AddPaymentInfo)', 'metatrac' ),
+			'Purchase'             => __( 'Purchase Completed (Purchase)', 'metatrac' ),
+			'CustomizeProduct'     => __( 'Product Customized (CustomizeProduct)', 'metatrac' ),
+			'Donate'               => __( 'Donation Made (Donate)', 'metatrac' ),
+		];
+	}
+
+	/**
+	 * Builds the <option> markup for a Page Events row's page dropdown,
+	 * shared by the rendered rows and the JS row template so both use
+	 * identical markup.
+	 *
+	 * @param array $pages           Published pages (see published_pages()).
+	 * @param int   $selected_page_id Currently selected page ID, or 0.
+	 * @return string
+	 */
+	private function page_options_html( array $pages, $selected_page_id ) {
+		ob_start();
+		?>
+		<option value=""><?php esc_html_e( 'Select a page', 'metatrac' ); ?></option>
+		<?php foreach ( $pages as $page ) : ?>
+			<option value="<?php echo esc_attr( $page->ID ); ?>" <?php selected( (int) $selected_page_id, $page->ID ); ?>><?php echo esc_html( $page->post_title ); ?></option>
+		<?php endforeach; ?>
+		<?php
+		return ob_get_clean();
+	}
+
+	/**
+	 * Builds the <option> markup for a Page Events row's event dropdown,
+	 * shared by the rendered rows and the JS row template so both use
+	 * identical markup.
+	 *
+	 * @param string $selected_event Currently selected event, or ''.
+	 * @return string
+	 */
+	private function event_options_html( $selected_event ) {
+		ob_start();
+		?>
+		<option value=""><?php esc_html_e( 'Select an event', 'metatrac' ); ?></option>
+		<?php foreach ( $this->standard_event_labels() as $event => $label ) : ?>
+			<option value="<?php echo esc_attr( $event ); ?>" <?php selected( $selected_event, $event ); ?>><?php echo esc_html( $label ); ?></option>
+		<?php endforeach; ?>
+		<?php
+		return ob_get_clean();
 	}
 
 	/**
@@ -293,6 +405,58 @@ class Metatrac_Admin_Settings {
 						</td>
 					</tr>
 					<tr>
+						<th scope="row"><?php esc_html_e( 'Page Events', 'metatrac' ); ?></th>
+						<td>
+							<?php
+							$pages       = $this->published_pages();
+							$page_events = (array) $settings['page_events'];
+							$row_index   = 0;
+							?>
+							<?php if ( empty( $pages ) ) : ?>
+								<p class="description"><?php esc_html_e( 'No published pages found.', 'metatrac' ); ?></p>
+							<?php else : ?>
+								<div id="metatrac_page_event_rows">
+									<?php if ( empty( $page_events ) ) : ?>
+										<div class="metatrac-page-event-row" style="margin-bottom:6px;">
+											<select name="metatrac_settings[page_events][0][page_id]"><?php echo $this->page_options_html( $pages, 0 ); ?></select>
+											<select name="metatrac_settings[page_events][0][event]"><?php echo $this->event_options_html( '' ); ?></select>
+											<button type="button" class="button metatrac-remove-page-event-row"><?php esc_html_e( 'Remove', 'metatrac' ); ?></button>
+										</div>
+										<?php $row_index = 1; ?>
+									<?php else : ?>
+										<?php foreach ( $page_events as $page_id => $event ) : ?>
+											<div class="metatrac-page-event-row" style="margin-bottom:6px;">
+												<select name="metatrac_settings[page_events][<?php echo (int) $row_index; ?>][page_id]"><?php echo $this->page_options_html( $pages, $page_id ); ?></select>
+												<select name="metatrac_settings[page_events][<?php echo (int) $row_index; ?>][event]"><?php echo $this->event_options_html( $event ); ?></select>
+												<button type="button" class="button metatrac-remove-page-event-row"><?php esc_html_e( 'Remove', 'metatrac' ); ?></button>
+											</div>
+											<?php ++$row_index; ?>
+										<?php endforeach; ?>
+									<?php endif; ?>
+								</div>
+								<p>
+									<button type="button" id="metatrac_add_page_event_row" class="button"><?php esc_html_e( '+ Add Page Event', 'metatrac' ); ?></button>
+								</p>
+								<template id="metatrac_page_event_row_template" data-next-index="<?php echo (int) $row_index; ?>">
+									<div class="metatrac-page-event-row" style="margin-bottom:6px;">
+										<select name="metatrac_settings[page_events][__INDEX__][page_id]"><?php echo $this->page_options_html( $pages, 0 ); ?></select>
+										<select name="metatrac_settings[page_events][__INDEX__][event]"><?php echo $this->event_options_html( '' ); ?></select>
+										<button type="button" class="button metatrac-remove-page-event-row"><?php esc_html_e( 'Remove', 'metatrac' ); ?></button>
+									</div>
+								</template>
+							<?php endif; ?>
+							<p class="description">
+								<?php
+								printf(
+									/* translators: %s: link to Meta's Standard Events documentation. */
+									esc_html__( 'Pick a page and a standard event (see %s); it fires that event once, on page load, whenever that page is viewed, independent of the Events to Track checkboxes above. Add as many page/event pairs as you like.', 'metatrac' ),
+									'<a href="https://www.facebook.com/business/help/402791146561655?id=1205376682832142" target="_blank" rel="noopener noreferrer">' . esc_html__( "Meta's Standard Events", 'metatrac' ) . '</a>'
+								);
+								?>
+							</p>
+						</td>
+					</tr>
+					<tr>
 						<th scope="row"><label for="metatrac_debug_mode"><?php esc_html_e( 'Debug Mode', 'metatrac' ); ?></label></th>
 						<td>
 							<label>
@@ -325,6 +489,33 @@ class Metatrac_Admin_Settings {
 					leadSelector.style.display = leadCheckbox.checked ? '' : 'none';
 				} );
 			}
+		} )();
+
+		( function () {
+			var addButton = document.getElementById( 'metatrac_add_page_event_row' );
+			var container = document.getElementById( 'metatrac_page_event_rows' );
+			var template  = document.getElementById( 'metatrac_page_event_row_template' );
+
+			if ( ! addButton || ! container || ! template ) {
+				return;
+			}
+
+			var nextIndex = parseInt( template.getAttribute( 'data-next-index' ), 10 ) || 0;
+
+			addButton.addEventListener( 'click', function () {
+				var row = template.content.firstElementChild.cloneNode( true );
+				row.querySelectorAll( 'select' ).forEach( function ( select ) {
+					select.name = select.name.replace( '__INDEX__', nextIndex );
+				} );
+				container.appendChild( row );
+				nextIndex++;
+			} );
+
+			container.addEventListener( 'click', function ( event ) {
+				if ( event.target.classList.contains( 'metatrac-remove-page-event-row' ) ) {
+					event.target.closest( '.metatrac-page-event-row' ).remove();
+				}
+			} );
 		} )();
 		</script>
 		<?php

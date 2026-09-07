@@ -4,7 +4,7 @@ Tags: woocommerce, meta, facebook, pixel, conversions api
 Requires at least: 6.0
 Tested up to: 7.0.2
 Requires PHP: 7.4
-Stable tag: 1.3.0
+Stable tag: 1.4.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -22,7 +22,9 @@ browser via the Meta Pixel, and once from the server via the Conversions
 API, sharing an event_id so Meta deduplicates the pair. Which events are
 tracked, and whether debug logging is on, are configured per site under
 Settings > MetaTrac; the ecommerce events are grayed out there while
-WooCommerce is inactive.
+WooCommerce is inactive. A separate Page Events setting can assign any of
+Meta's standard events to any published page, firing it on every load of
+that page, independent of the events above.
 
 == Installation ==
 
@@ -34,6 +36,16 @@ WooCommerce is inactive.
 4. Choose which events to track.
 
 == Changelog ==
+
+= 1.4.0 =
+* Added Page Events: Settings > MetaTrac > Page Events is a repeater of
+  page + standard event pairs (per
+  https://www.facebook.com/business/help/402791146561655?id=1205376682832142,
+  "+ Add Page Event" to add a row, "Remove" to delete one), so any published
+  page can be assigned any standard event to fire once on page load,
+  independent of the Events to Track checkboxes. Useful for pages with no
+  dedicated tracking hook of their own, e.g. a Gravity Forms
+  redirect-confirmation "Thank You" page, a pricing page, or a signup page.
 
 = 1.3.0 =
 * Added a new FindLocation event: fires once per browser session on the

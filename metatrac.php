@@ -2,8 +2,8 @@
 /**
  * Plugin Name: MetaTrac
  * Plugin URI: https://www.lifexmarketing.com/metatrac/
- * Description: Tracks PageView, Contact, FindLocation, and Lead events out of the box, plus WooCommerce ecommerce events (ViewContent, AddToCart, InitiateCheckout, Purchase) when WooCommerce is active, and sends them to Meta via both the Pixel (browser) and the Conversions API (server), with per-site event selection and a debug mode for console + log-file visibility.
- * Version: 1.3.0
+ * Description: Tracks PageView, Contact, FindLocation, and Lead events out of the box, plus WooCommerce ecommerce events (ViewContent, AddToCart, InitiateCheckout, Purchase) when WooCommerce is active, plus any of Meta's standard events on any published page via Page Events, and sends them to Meta via both the Pixel (browser) and the Conversions API (server), with per-site event selection and a debug mode for console + log-file visibility.
+ * Version: 1.4.0
  * Author: LifeX Marketing
  * Author URI: https://www.lifexmarketing.com
  * License: GPL-2.0+
@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define plugin constants for easy referencing.
-define( 'METATRAC_VERSION', '1.3.0' );
+define( 'METATRAC_VERSION', '1.4.0' );
 define( 'METATRAC_PLUGIN_PATH', plugin_dir_path( __FILE__ ) );
 define( 'METATRAC_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'METATRAC_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
@@ -43,6 +43,7 @@ function metatrac_init() {
 	require_once METATRAC_PLUGIN_PATH . 'includes/class-metatrac-contact-tracker.php';
 	require_once METATRAC_PLUGIN_PATH . 'includes/class-metatrac-find-location-tracker.php';
 	require_once METATRAC_PLUGIN_PATH . 'includes/class-metatrac-gravity-forms-tracker.php';
+	require_once METATRAC_PLUGIN_PATH . 'includes/class-metatrac-page-event-tracker.php';
 
 	$pixel = new Metatrac_Pixel();
 	$pixel->init();
@@ -55,6 +56,9 @@ function metatrac_init() {
 
 	$gravity_forms_tracker = new Metatrac_Gravity_Forms_Tracker();
 	$gravity_forms_tracker->init();
+
+	$page_event_tracker = new Metatrac_Page_Event_Tracker();
+	$page_event_tracker->init();
 
 	// The ecommerce events (ViewContent, AddToCart, InitiateCheckout,
 	// Purchase) only make sense with WooCommerce active, and Lead only makes

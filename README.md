@@ -27,9 +27,13 @@ the bundled [Plugin Update Checker](https://github.com/YahnisElsts/plugin-update
 3. Enter the **Meta Pixel ID** and **Conversions API Access Token**.
 4. Check which events to track: `ViewContent`, `AddToCart`,
    `InitiateCheckout`, `Purchase`, `Contact`, `FindLocation`, `Lead`.
-5. Optionally turn on **Debug Mode** while verifying a new install — see
+5. Optionally, under **Page Events**, assign any of [Meta's standard
+   events](https://www.facebook.com/business/help/402791146561655?id=1205376682832142)
+   to any published page, to fire that event on every load of that page;
+   see "Page Events" below.
+6. Optionally turn on **Debug Mode** while verifying a new install — see
    "Debug mode" below — and turn it back off once confirmed.
-6. Optionally paste a **Test Event Code** from Events Manager > Test Events
+7. Optionally paste a **Test Event Code** from Events Manager > Test Events
    while verifying CAPI delivery, then remove it.
 
 ## How events are tracked
@@ -121,6 +125,31 @@ disabling Lead tracking site-wide.
 or "Redirect to a page," the browser navigates away right after submitting,
 so the browser Pixel call could be lost if the redirect fires before the
 footer script runs. The server-side CAPI event still fires normally either way.
+
+## Page Events (any standard event, on any page)
+
+Unlike the events above, which are each wired to one specific site action,
+Page Events lets an admin assign any of [Meta's 17 standard
+events](https://www.facebook.com/business/help/402791146561655?id=1205376682832142)
+(everything but `PageView`, which MetaTrac already fires automatically on
+every page) to any published WordPress page, independent of the Events to
+Track checkboxes. Settings > MetaTrac > Page Events is a small repeater:
+each row is a page dropdown paired with an event dropdown, with "+ Add Page
+Event" (plain JS, no build step) to add more rows and a "Remove" button on
+each row, so the settings screen only grows with however many mappings are
+actually configured, rather than listing every page on the site. Picking a
+page and event fires that event (via the normal Pixel + CAPI fan-out,
+`Metatrac_Pixel::fire_event()`) on every load of that page, useful for pages
+with no dedicated hook of their own, like a Gravity Forms
+redirect-confirmation "Thank You" page (`CompleteRegistration` or
+`Schedule`), a pricing page (`ViewContent`), or a signup page (`Subscribe`).
+
+Hooked on `wp`, gated on `is_page()`, so it only ever fires for the specific
+pages assigned an event, never posts, archives, or the rest of the site.
+Saved mappings are keyed by page ID and revalidated against the site's
+actual published pages and Meta's actual standard event list on every save,
+so a page that's since been trashed or unpublished can't linger as a stale,
+invisible mapping.
 
 ## Debug mode
 
