@@ -174,6 +174,7 @@ class Metatrac_Admin_Settings {
 			'InitiateCheckout' => __( 'Checkout Started (InitiateCheckout)', 'metatrac' ),
 			'Purchase'         => __( 'Order Completed (Purchase)', 'metatrac' ),
 			'Contact'          => __( 'Phone/SMS Link Clicked (Contact), once per session', 'metatrac' ),
+			'FindLocation'     => __( 'Google Maps Link Clicked (FindLocation), once per session', 'metatrac' ),
 			'Lead'             => __( 'Gravity Forms Submitted (Lead)', 'metatrac' ),
 		];
 	}
@@ -230,8 +231,7 @@ class Metatrac_Admin_Settings {
 								$ecommerce_events     = Metatrac_Settings::ecommerce_events();
 								$gravity_forms_events = Metatrac_Settings::gravity_forms_events();
 								$event_checkbox_ids   = [
-									'Contact' => 'metatrac_event_contact',
-									'Lead'    => 'metatrac_event_lead',
+									'Lead' => 'metatrac_event_lead',
 								];
 								foreach ( $this->event_labels() as $key => $label ) :
 									$needs_woocommerce   = ! $woocommerce_active && in_array( $key, $ecommerce_events, true );
@@ -248,13 +248,10 @@ class Metatrac_Admin_Settings {
 										<?php endif; ?>
 									</label>
 									<?php if ( 'Contact' === $key ) : ?>
-										<?php $contact_enabled = in_array( 'Contact', (array) $settings['enabled_events'], true ); ?>
-										<div id="metatrac_contact_mailto_option" style="margin:0 0 14px 24px;<?php echo $contact_enabled ? '' : 'display:none;'; ?>">
-											<label style="display:block;">
-												<input type="checkbox" name="metatrac_settings[contact_mailto]" value="1" <?php checked( $settings['contact_mailto'] ); ?> />
-												<?php esc_html_e( 'Also track clicks on mailto: links', 'metatrac' ); ?>
-											</label>
-										</div>
+										<label style="display:block;margin-bottom:6px;">
+											<input type="checkbox" name="metatrac_settings[contact_mailto]" value="1" <?php checked( $settings['contact_mailto'] ); ?> />
+											<?php esc_html_e( 'Mailto Link Clicked (Contact), once per session', 'metatrac' ); ?>
+										</label>
 									<?php endif; ?>
 									<?php if ( 'Lead' === $key && $gravity_forms_active ) : ?>
 										<?php
@@ -321,18 +318,13 @@ class Metatrac_Admin_Settings {
 		</div>
 		<script>
 		( function () {
-			function wireToggle( checkboxId, panelId ) {
-				var checkbox = document.getElementById( checkboxId );
-				var panel    = document.getElementById( panelId );
-				if ( checkbox && panel ) {
-					checkbox.addEventListener( 'change', function () {
-						panel.style.display = checkbox.checked ? '' : 'none';
-					} );
-				}
+			var leadCheckbox = document.getElementById( 'metatrac_event_lead' );
+			var leadSelector = document.getElementById( 'metatrac_lead_form_selector' );
+			if ( leadCheckbox && leadSelector ) {
+				leadCheckbox.addEventListener( 'change', function () {
+					leadSelector.style.display = leadCheckbox.checked ? '' : 'none';
+				} );
 			}
-
-			wireToggle( 'metatrac_event_contact', 'metatrac_contact_mailto_option' );
-			wireToggle( 'metatrac_event_lead', 'metatrac_lead_form_selector' );
 		} )();
 		</script>
 		<?php

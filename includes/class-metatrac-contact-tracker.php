@@ -2,13 +2,15 @@
 /**
  * Class Metatrac_Contact_Tracker
  *
- * Tracks the Contact event: a click/tap on a tel: or sms: link anywhere on
- * the site, once per browser session, plus mailto: links too when the
- * "also track mailto: links" setting is on. Unlike the WooCommerce events, there's
- * no server-side hook for "a link was clicked", so the click itself is
- * detected in assets/js/metatrac-frontend.js, which fires the Pixel side
- * directly and calls handle_ajax() below (via admin-ajax.php) for the CAPI
- * side, sharing one event_id between the two for dedupe.
+ * Tracks the Contact event: a click/tap on a tel:/sms: link and/or a mailto:
+ * link anywhere on the site, once per browser session. The two are
+ * independently enabled ("Phone/SMS Link Clicked" and "Mailto Link
+ * Clicked" on the settings screen), so a site can track either on its own
+ * without the other. Unlike the WooCommerce events, there's no server-side
+ * hook for "a link was clicked", so the click itself is detected in
+ * assets/js/metatrac-frontend.js, which fires the Pixel side directly and
+ * calls handle_ajax() below (via admin-ajax.php) for the CAPI side, sharing
+ * one event_id between the two for dedupe.
  */
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -20,11 +22,15 @@ class Metatrac_Contact_Tracker {
 	const NONCE_ACTION = 'metatrac_contact_nonce';
 
 	/**
-	 * Registers hooks, only if the Contact event is enabled and the plugin
-	 * has enough configuration for anything to fire at all.
+	 * Registers hooks, only if at least one of tel:/sms: or mailto: tracking
+	 * is enabled and the plugin has enough configuration for anything to
+	 * fire at all.
 	 */
 	public function init() {
-		if ( ! Metatrac_Settings::is_event_enabled( 'Contact' ) || ! Metatrac_Settings::has_pixel_id() ) {
+		$tel_sms_enabled = Metatrac_Settings::is_event_enabled( 'Contact' );
+		$mailto_enabled  = Metatrac_Settings::is_contact_mailto_enabled();
+
+		if ( ( ! $tel_sms_enabled && ! $mailto_enabled ) || ! Metatrac_Settings::has_pixel_id() ) {
 			return;
 		}
 
@@ -50,6 +56,7 @@ class Metatrac_Contact_Tracker {
 			[
 				'ajaxUrl'     => admin_url( 'admin-ajax.php' ),
 				'nonce'       => wp_create_nonce( self::NONCE_ACTION ),
+				'trackTelSms' => Metatrac_Settings::is_event_enabled( 'Contact' ),
 				'trackMailto' => Metatrac_Settings::is_contact_mailto_enabled(),
 			]
 		);

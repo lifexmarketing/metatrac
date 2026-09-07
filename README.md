@@ -14,9 +14,9 @@ the bundled [Plugin Update Checker](https://github.com/YahnisElsts/plugin-update
 - A Meta Pixel ID and a Conversions API access token (Events Manager > Data
   Sources > your Pixel > Settings > Conversions API > Generate access token).
 - WooCommerce active, only if you want the ecommerce events (`ViewContent`,
-  `AddToCart`, `InitiateCheckout`, `Purchase`); `PageView`, `Contact`, and
-  `Lead` all work without it. On the settings screen, the ecommerce
-  checkboxes are grayed out while WooCommerce is inactive.
+  `AddToCart`, `InitiateCheckout`, `Purchase`); `PageView`, `Contact`,
+  `FindLocation`, and `Lead` all work without it. On the settings screen, the
+  ecommerce checkboxes are grayed out while WooCommerce is inactive.
 - Gravity Forms active, only if you want the `Lead` event; MetaTrac still
   works fully without it, `Lead` just never fires.
 
@@ -26,7 +26,7 @@ the bundled [Plugin Update Checker](https://github.com/YahnisElsts/plugin-update
 2. Go to **Settings > MetaTrac** (requires the `manage_options` capability).
 3. Enter the **Meta Pixel ID** and **Conversions API Access Token**.
 4. Check which events to track: `ViewContent`, `AddToCart`,
-   `InitiateCheckout`, `Purchase`, `Contact`, `Lead`.
+   `InitiateCheckout`, `Purchase`, `Contact`, `FindLocation`, `Lead`.
 5. Optionally turn on **Debug Mode** while verifying a new install — see
    "Debug mode" below — and turn it back off once confirmed.
 6. Optionally paste a **Test Event Code** from Events Manager > Test Events
@@ -50,7 +50,8 @@ the browser and server copies:
 | `AddToCart`         | `woocommerce_add_to_cart` (ajax or classic form submit)  |
 | `InitiateCheckout`  | Checkout page load, if the cart isn't empty; deduped per cart contents so refreshing/revisiting an unchanged cart doesn't refire it |
 | `Purchase`          | Order-received ("thank you") page, once per order        |
-| `Contact`           | First click/tap on a `tel:` or `sms:` link anywhere on the site, once per browser session; `mailto:` links too if enabled in Contact's settings |
+| `Contact`           | First click/tap on a `tel:`/`sms:` link and/or a `mailto:` link anywhere on the site (independently toggled), once per browser session |
+| `FindLocation`      | First click/tap on a link to Google Maps anywhere on the site (a "Get Directions" link, an embedded map's "View larger map" link, a `goo.gl/maps`/`maps.app.goo.gl` short link, etc.), once per browser session |
 | `Lead`              | A Gravity Forms submission (`gform_after_submission`), for the forms selected in Lead's settings (all active forms by default) |
 
 ### AddToCart and ajax carts
@@ -72,15 +73,33 @@ CAPI event still fires normally.
 
 There's no server-side hook for "a link was clicked", so detection happens
 entirely in `assets/js/metatrac-frontend.js`: a delegated click listener
-matches any `a[href^="tel:"]` or `a[href^="sms:"]` on the page, plus
-`a[href^="mailto:"]` too when "Also track clicks on mailto: links" (Settings
-> MetaTrac > Events to Track > Contact) is turned on; off by default, since a
-mailto: link is a much weaker Lead signal than a tel:/sms: link on most
-sites. On the first match in a browser session (tracked via
-`sessionStorage`, so it resets when the tab/browser closes, not tied to a
-WooCommerce/PHP session), it fires the Pixel side immediately and calls a
-dedicated `admin-ajax.php` endpoint (`metatrac_contact`) for the CAPI side,
-sharing the same `event_id` between the two.
+matches `a[href^="tel:"]`/`a[href^="sms:"]` and/or `a[href^="mailto:"]` on
+the page, gated by two independent checkboxes on the settings screen
+("Phone/SMS Link Clicked" and "Mailto Link Clicked," both under Events to
+Track > Contact) so either can be turned on without the other; mailto is off
+by default, since a mailto: link is a much weaker Lead signal than a
+tel:/sms: link on most sites. On the first match of either kind in a browser
+session (tracked via `sessionStorage`, so it resets when the tab/browser
+closes, not tied to a WooCommerce/PHP session), it fires the Pixel side
+immediately and calls a dedicated `admin-ajax.php` endpoint
+(`metatrac_contact`) for the CAPI side, sharing the same `event_id` between
+the two.
+
+### FindLocation (Google Maps link clicks)
+
+Same mechanism as Contact, its own delegated click listener in
+`assets/js/metatrac-frontend.js`, independently enabled/disabled and gated
+on its own once-per-session `sessionStorage` key. A click matches when the
+clicked link's resolved hostname/pathname point at Google Maps:
+`google.<tld>/maps...` (e.g. an embedded map's "View larger map" link, or a
+"Get Directions" link), `maps.google.<tld>/...`, `goo.gl/maps/...`, or
+`maps.app.goo.gl/...`. Matching is done against the link's own `hostname`/
+`pathname` properties rather than a regex over the raw `href`, so a link on
+some unrelated domain that merely happens to contain "google.com/maps" in a
+query string isn't mistaken for a Maps link. Fires the Pixel side
+immediately and calls a dedicated `admin-ajax.php` endpoint
+(`metatrac_find_location`) for the CAPI side, sharing the same `event_id`
+between the two.
 
 ### Lead (Gravity Forms submissions)
 

@@ -4,19 +4,20 @@ Tags: woocommerce, meta, facebook, pixel, conversions api
 Requires at least: 6.0
 Tested up to: 7.0.2
 Requires PHP: 7.4
-Stable tag: 1.2.0
+Stable tag: 1.3.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
-Tracks PageView, Contact, and Lead events, plus WooCommerce ecommerce events when WooCommerce is active, and sends them to Meta via the Pixel and the Conversions API.
+Tracks PageView, Contact, FindLocation, and Lead events, plus WooCommerce ecommerce events when WooCommerce is active, and sends them to Meta via the Pixel and the Conversions API.
 
 == Description ==
 
-MetaTrac tracks PageView, Contact (tel:/sms: link clicks, once per session;
-mailto: links too, if enabled), and Lead (Gravity Forms submissions, if
-Gravity Forms is active) on any
-WordPress site, plus ViewContent, AddToCart, InitiateCheckout, and Purchase
-if WooCommerce is active. Each event is sent to Meta twice: once from the
+MetaTrac tracks PageView, Contact (tel:/sms: and/or mailto: link clicks,
+each independently enabled, once per session), FindLocation (Google Maps
+link clicks, once per session), and Lead (Gravity Forms submissions, if
+Gravity Forms is active) on any WordPress site, plus ViewContent, AddToCart,
+InitiateCheckout, and Purchase if WooCommerce is active. Each event is sent
+to Meta twice: once from the
 browser via the Meta Pixel, and once from the server via the Conversions
 API, sharing an event_id so Meta deduplicates the pair. Which events are
 tracked, and whether debug logging is on, are configured per site under
@@ -33,6 +34,17 @@ WooCommerce is inactive.
 4. Choose which events to track.
 
 == Changelog ==
+
+= 1.3.0 =
+* Added a new FindLocation event: fires once per browser session on the
+  first click/tap of a link to Google Maps anywhere on the site (a "Get
+  Directions" link, an embedded map's "View larger map" link, a
+  goo.gl/maps or maps.app.goo.gl short link, etc.), tracked and enabled the
+  same way as the existing Contact event (Events to Track > FindLocation).
+* Contact's mailto: link tracking is no longer dependent on tel:/sms: link
+  tracking: "Phone/SMS Link Clicked" and "Mailto Link Clicked" (Events to
+  Track > Contact) are now two independent checkboxes, so a site can track
+  either kind of link as a Contact event without the other.
 
 = 1.2.0 =
 * Contact's settings-screen checkbox now has an "Also track clicks on
