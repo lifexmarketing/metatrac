@@ -50,7 +50,7 @@ the browser and server copies:
 | `AddToCart`         | `woocommerce_add_to_cart` (ajax or classic form submit)  |
 | `InitiateCheckout`  | Checkout page load, if the cart isn't empty; deduped per cart contents so refreshing/revisiting an unchanged cart doesn't refire it |
 | `Purchase`          | Order-received ("thank you") page, once per order        |
-| `Contact`           | First click/tap on a `tel:` or `sms:` link anywhere on the site, once per browser session |
+| `Contact`           | First click/tap on a `tel:` or `sms:` link anywhere on the site, once per browser session; `mailto:` links too if enabled in Contact's settings |
 | `Lead`              | A Gravity Forms submission (`gform_after_submission`), for the forms selected in Lead's settings (all active forms by default) |
 
 ### AddToCart and ajax carts
@@ -68,16 +68,19 @@ redirect to the cart), the browser Pixel `AddToCart` call for that specific
 add is skipped, since that request never renders a footer. The server-side
 CAPI event still fires normally.
 
-### Contact (tel:/sms: link clicks)
+### Contact (tel:/sms:/mailto: link clicks)
 
 There's no server-side hook for "a link was clicked", so detection happens
 entirely in `assets/js/metatrac-frontend.js`: a delegated click listener
-matches any `a[href^="tel:"]` or `a[href^="sms:"]` on the page. On the first
-match in a browser session (tracked via `sessionStorage`, so it resets when
-the tab/browser closes, not tied to a WooCommerce/PHP session), it fires the
-Pixel side immediately and calls a dedicated `admin-ajax.php` endpoint
-(`metatrac_contact`) for the CAPI side, sharing the same `event_id` between
-the two.
+matches any `a[href^="tel:"]` or `a[href^="sms:"]` on the page, plus
+`a[href^="mailto:"]` too when "Also track clicks on mailto: links" (Settings
+> MetaTrac > Events to Track > Contact) is turned on; off by default, since a
+mailto: link is a much weaker Lead signal than a tel:/sms: link on most
+sites. On the first match in a browser session (tracked via
+`sessionStorage`, so it resets when the tab/browser closes, not tied to a
+WooCommerce/PHP session), it fires the Pixel side immediately and calls a
+dedicated `admin-ajax.php` endpoint (`metatrac_contact`) for the CAPI side,
+sharing the same `event_id` between the two.
 
 ### Lead (Gravity Forms submissions)
 

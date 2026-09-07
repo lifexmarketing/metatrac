@@ -4,7 +4,7 @@ Tags: woocommerce, meta, facebook, pixel, conversions api
 Requires at least: 6.0
 Tested up to: 7.0.2
 Requires PHP: 7.4
-Stable tag: 1.1.0
+Stable tag: 1.2.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -12,8 +12,9 @@ Tracks PageView, Contact, and Lead events, plus WooCommerce ecommerce events whe
 
 == Description ==
 
-MetaTrac tracks PageView, Contact (tel:/sms: link clicks, once per session),
-and Lead (Gravity Forms submissions, if Gravity Forms is active) on any
+MetaTrac tracks PageView, Contact (tel:/sms: link clicks, once per session;
+mailto: links too, if enabled), and Lead (Gravity Forms submissions, if
+Gravity Forms is active) on any
 WordPress site, plus ViewContent, AddToCart, InitiateCheckout, and Purchase
 if WooCommerce is active. Each event is sent to Meta twice: once from the
 browser via the Meta Pixel, and once from the server via the Conversions
@@ -32,6 +33,13 @@ WooCommerce is inactive.
 4. Choose which events to track.
 
 == Changelog ==
+
+= 1.2.0 =
+* Contact's settings-screen checkbox now has an "Also track clicks on
+  mailto: links" option (Events to Track > Contact), off by default. Turning
+  it on fires Contact for mailto: links the same way it already does for
+  tel:/sms: links, on the first click/tap of any of the three per browser
+  session.
 
 = 1.1.0 =
 * Lead's settings-screen checkbox can now be narrowed to specific Gravity

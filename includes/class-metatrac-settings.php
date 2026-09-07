@@ -54,6 +54,7 @@ class Metatrac_Settings {
 			'enabled_events'  => self::trackable_events(),
 			'lead_form_mode'  => 'all',
 			'lead_form_ids'   => [],
+			'contact_mailto'  => false,
 			'debug_mode'      => false,
 		];
 	}
@@ -108,6 +109,16 @@ class Metatrac_Settings {
 
 		$form_ids = self::get( 'lead_form_ids' );
 		return is_array( $form_ids ) && in_array( (int) $form_id, $form_ids, true );
+	}
+
+	/**
+	 * Whether the Contact event should also fire on mailto: link clicks, in
+	 * addition to its default tel:/sms: links.
+	 *
+	 * @return bool
+	 */
+	public static function is_contact_mailto_enabled() {
+		return (bool) self::get( 'contact_mailto' );
 	}
 
 	/**

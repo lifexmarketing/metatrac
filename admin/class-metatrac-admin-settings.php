@@ -112,6 +112,8 @@ class Metatrac_Admin_Settings {
 			$output['lead_form_ids']  = $current['lead_form_ids'];
 		}
 
+		$output['contact_mailto'] = ! empty( $input['contact_mailto'] );
+
 		$output['debug_mode'] = ! empty( $input['debug_mode'] );
 
 		return $output;
@@ -227,13 +229,17 @@ class Metatrac_Admin_Settings {
 								$gravity_forms_active = $dependency_checker->is_gravity_forms_active();
 								$ecommerce_events     = Metatrac_Settings::ecommerce_events();
 								$gravity_forms_events = Metatrac_Settings::gravity_forms_events();
+								$event_checkbox_ids   = [
+									'Contact' => 'metatrac_event_contact',
+									'Lead'    => 'metatrac_event_lead',
+								];
 								foreach ( $this->event_labels() as $key => $label ) :
 									$needs_woocommerce   = ! $woocommerce_active && in_array( $key, $ecommerce_events, true );
 									$needs_gravity_forms = ! $gravity_forms_active && in_array( $key, $gravity_forms_events, true );
 									$needs_plugin        = $needs_woocommerce || $needs_gravity_forms;
 									?>
 									<label style="display:block;margin-bottom:6px;<?php echo $needs_plugin ? 'color:#a7aaad;' : ''; ?>">
-										<input type="checkbox" <?php echo ( 'Lead' === $key ) ? 'id="metatrac_event_lead"' : ''; ?> name="metatrac_settings[enabled_events][]" value="<?php echo esc_attr( $key ); ?>" <?php checked( in_array( $key, (array) $settings['enabled_events'], true ) ); ?> <?php disabled( $needs_plugin ); ?> />
+										<input type="checkbox" <?php echo isset( $event_checkbox_ids[ $key ] ) ? 'id="' . esc_attr( $event_checkbox_ids[ $key ] ) . '"' : ''; ?> name="metatrac_settings[enabled_events][]" value="<?php echo esc_attr( $key ); ?>" <?php checked( in_array( $key, (array) $settings['enabled_events'], true ) ); ?> <?php disabled( $needs_plugin ); ?> />
 										<?php echo esc_html( $label ); ?>
 										<?php if ( $needs_woocommerce ) : ?>
 											<?php esc_html_e( '(requires WooCommerce)', 'metatrac' ); ?>
@@ -241,6 +247,15 @@ class Metatrac_Admin_Settings {
 											<?php esc_html_e( '(requires Gravity Forms)', 'metatrac' ); ?>
 										<?php endif; ?>
 									</label>
+									<?php if ( 'Contact' === $key ) : ?>
+										<?php $contact_enabled = in_array( 'Contact', (array) $settings['enabled_events'], true ); ?>
+										<div id="metatrac_contact_mailto_option" style="margin:0 0 14px 24px;<?php echo $contact_enabled ? '' : 'display:none;'; ?>">
+											<label style="display:block;">
+												<input type="checkbox" name="metatrac_settings[contact_mailto]" value="1" <?php checked( $settings['contact_mailto'] ); ?> />
+												<?php esc_html_e( 'Also track clicks on mailto: links', 'metatrac' ); ?>
+											</label>
+										</div>
+									<?php endif; ?>
 									<?php if ( 'Lead' === $key && $gravity_forms_active ) : ?>
 										<?php
 										$active_forms   = $this->active_gravity_forms();
@@ -304,19 +319,22 @@ class Metatrac_Admin_Settings {
 				<?php submit_button(); ?>
 			</form>
 		</div>
-		<?php if ( $gravity_forms_active ) : ?>
-			<script>
-			( function () {
-				var leadCheckbox = document.getElementById( 'metatrac_event_lead' );
-				var selector     = document.getElementById( 'metatrac_lead_form_selector' );
-				if ( leadCheckbox && selector ) {
-					leadCheckbox.addEventListener( 'change', function () {
-						selector.style.display = leadCheckbox.checked ? '' : 'none';
+		<script>
+		( function () {
+			function wireToggle( checkboxId, panelId ) {
+				var checkbox = document.getElementById( checkboxId );
+				var panel    = document.getElementById( panelId );
+				if ( checkbox && panel ) {
+					checkbox.addEventListener( 'change', function () {
+						panel.style.display = checkbox.checked ? '' : 'none';
 					} );
 				}
-			} )();
-			</script>
-		<?php endif; ?>
+			}
+
+			wireToggle( 'metatrac_event_contact', 'metatrac_contact_mailto_option' );
+			wireToggle( 'metatrac_event_lead', 'metatrac_lead_form_selector' );
+		} )();
+		</script>
 		<?php
 	}
 }

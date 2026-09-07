@@ -3,7 +3,8 @@
  * Class Metatrac_Contact_Tracker
  *
  * Tracks the Contact event: a click/tap on a tel: or sms: link anywhere on
- * the site, once per browser session. Unlike the WooCommerce events, there's
+ * the site, once per browser session, plus mailto: links too when the
+ * "also track mailto: links" setting is on. Unlike the WooCommerce events, there's
  * no server-side hook for "a link was clicked", so the click itself is
  * detected in assets/js/metatrac-frontend.js, which fires the Pixel side
  * directly and calls handle_ajax() below (via admin-ajax.php) for the CAPI
@@ -47,8 +48,9 @@ class Metatrac_Contact_Tracker {
 			'metatrac-frontend',
 			'metatracContact',
 			[
-				'ajaxUrl' => admin_url( 'admin-ajax.php' ),
-				'nonce'   => wp_create_nonce( self::NONCE_ACTION ),
+				'ajaxUrl'     => admin_url( 'admin-ajax.php' ),
+				'nonce'       => wp_create_nonce( self::NONCE_ACTION ),
+				'trackMailto' => Metatrac_Settings::is_contact_mailto_enabled(),
 			]
 		);
 	}

@@ -23,7 +23,8 @@ window.metatracFireEvent = function ( evt ) {
 
 /**
  * Contact event: fires once per browser session on the first click/tap of a
- * tel: or sms: link anywhere on the page. window.metatracContact is only
+ * tel: or sms: link anywhere on the page (plus mailto: links too, when
+ * metatracContact.trackMailto is on). window.metatracContact is only
  * localized (see class-metatrac-contact-tracker.php) when the Contact event
  * is enabled, so its absence means there's nothing to listen for.
  */
@@ -64,7 +65,12 @@ window.metatracFireEvent = function ( evt ) {
 			return;
 		}
 
-		var link = event.target.closest( 'a[href^="tel:"], a[href^="sms:"]' );
+		var selector = 'a[href^="tel:"], a[href^="sms:"]';
+		if ( metatracContact.trackMailto ) {
+			selector += ', a[href^="mailto:"]';
+		}
+
+		var link = event.target.closest( selector );
 		if ( ! link ) {
 			return;
 		}
