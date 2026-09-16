@@ -3,21 +3,56 @@
  *
  * Defines window.metatracFireEvent(), the single place a queued event turns
  * into an actual fbq() call (and, in debug mode, a console.log). PHP feeds
- * this function events from two places:
- *  - the footer queue flush (page-load events: ViewContent, InitiateCheckout, Purchase)
- *  - the WooCommerce ajax add-to-cart fragment response (AddToCart)
+ * this function events from:
+ *  - the footer queue flush (page-load events, e.g. Purchase, and
+ *    AddToCart's non-ajax redirect fallback — id already set — plus
+ *    ViewContent, InitiateCheckout, and Page Events — deferred, no id yet)
+ *  - the WooCommerce ajax add-to-cart fragment response (AddToCart, id
+ *    already set)
+ *
+ * An event queued with `deferred: true` and no `id` (see
+ * Metatrac_Pixel::queue_deferred_event()) is one whose page render might be
+ * served from a page cache to many different visitors unchanged, so PHP
+ * couldn't safely mint its event_id or send its CAPI copy at render time.
+ * This function mints the id itself, fires the Pixel call with it right
+ * away, and reports it to metatracDeferred.action (admin-ajax.php) so the
+ * matching CAPI call runs fresh on every real page load instead.
  */
+function metatracGenerateEventId() {
+	if ( window.crypto && typeof window.crypto.randomUUID === 'function' ) {
+		return window.crypto.randomUUID();
+	}
+	return 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'.replace( /x/g, function () {
+		return Math.floor( Math.random() * 16 ).toString( 16 );
+	} );
+}
+
 window.metatracFireEvent = function ( evt ) {
 	if ( ! evt || ! evt.name ) {
 		return;
 	}
 
+	var eventId = evt.id || ( evt.deferred ? metatracGenerateEventId() : '' );
+
 	if ( typeof fbq === 'function' ) {
-		fbq( 'track', evt.name, evt.params || {}, evt.id ? { eventID: evt.id } : undefined );
+		fbq( 'track', evt.name, evt.params || {}, eventId ? { eventID: eventId } : undefined );
 	}
 
 	if ( window.metatracDebug ) {
-		console.log( '[MetaTrac] Event fired: ' + evt.name, evt.params || {}, evt.id || '' );
+		console.log( '[MetaTrac] Event fired: ' + evt.name, evt.params || {}, eventId );
+	}
+
+	if ( evt.deferred && eventId && window.metatracDeferred ) {
+		var body = new URLSearchParams( {
+			action: window.metatracDeferred.action,
+			nonce: window.metatracDeferred.nonce,
+			event_name: evt.name,
+			event_id: eventId,
+			page_url: evt.pageUrl || window.location.href,
+			custom_data: JSON.stringify( evt.params || {} )
+		} );
+
+		fetch( window.metatracDeferred.ajaxUrl, { method: 'POST', body: body } );
 	}
 };
 
@@ -52,15 +87,6 @@ window.metatracFireEvent = function ( evt ) {
 		}
 	}
 
-	function generateEventId() {
-		if ( window.crypto && typeof window.crypto.randomUUID === 'function' ) {
-			return window.crypto.randomUUID();
-		}
-		return 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'.replace( /x/g, function () {
-			return Math.floor( Math.random() * 16 ).toString( 16 );
-		} );
-	}
-
 	document.addEventListener( 'click', function ( event ) {
 		if ( alreadyFiredThisSession() || ! event.target.closest ) {
 			return;
@@ -81,7 +107,7 @@ window.metatracFireEvent = function ( evt ) {
 
 		markFiredThisSession();
 
-		var eventId = generateEventId();
+		var eventId = metatracGenerateEventId();
 
 		window.metatracFireEvent( { name: 'Contact', params: {}, id: eventId } );
 
@@ -131,15 +157,6 @@ window.metatracFireEvent = function ( evt ) {
 		}
 	}
 
-	function generateEventId() {
-		if ( window.crypto && typeof window.crypto.randomUUID === 'function' ) {
-			return window.crypto.randomUUID();
-		}
-		return 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'.replace( /x/g, function () {
-			return Math.floor( Math.random() * 16 ).toString( 16 );
-		} );
-	}
-
 	// Matched on the link's own resolved hostname/pathname (rather than a
 	// regex over the raw href) so this doesn't accidentally match some other
 	// site's link that merely contains "google.com/maps" in a query string.
@@ -178,7 +195,7 @@ window.metatracFireEvent = function ( evt ) {
 
 		markFiredThisSession();
 
-		var eventId = generateEventId();
+		var eventId = metatracGenerateEventId();
 
 		window.metatracFireEvent( { name: 'FindLocation', params: {}, id: eventId } );
 

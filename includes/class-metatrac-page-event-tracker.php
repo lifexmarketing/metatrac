@@ -33,6 +33,13 @@ class Metatrac_Page_Event_Tracker {
 	/**
 	 * Fires the page's assigned event, if the current request is a singular
 	 * view of a page that has one.
+	 *
+	 * Uses queue_deferred_event() rather than fire_event(): these are
+	 * ordinary published pages (pricing pages, thank-you pages, and the
+	 * like), exactly the kind a caching plugin gives the longest TTLs, so
+	 * fire_event() would bake a single real event_id into the cached HTML
+	 * and dedupe away every later visitor's Pixel event against that one
+	 * stale CAPI call for as long as the page stays cached.
 	 */
 	public function track_page_view_event() {
 		if ( ! is_page() ) {
@@ -44,6 +51,6 @@ class Metatrac_Page_Event_Tracker {
 			return;
 		}
 
-		Metatrac_Pixel::fire_event( $event, [], Metatrac_Pixel::current_url() );
+		Metatrac_Pixel::queue_deferred_event( $event, [], Metatrac_Pixel::current_url() );
 	}
 }

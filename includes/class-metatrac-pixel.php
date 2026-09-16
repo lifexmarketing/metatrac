@@ -3,15 +3,30 @@
  * Class Metatrac_Pixel
  *
  * Outputs the base Meta Pixel snippet (PageView on every page) and provides a
- * small queue that WooCommerce event hooks push into; the queue is flushed as
- * a script in the footer, which calls the shared metatracFireEvent() JS
- * helper (assets/js/metatrac-frontend.js) for each queued event.
+ * small queue that event hooks push into; the queue is flushed as a script
+ * in the footer, which calls the shared metatracFireEvent() JS helper
+ * (assets/js/metatrac-frontend.js) for each queued event.
+ *
+ * Two ways an event reaches that queue:
+ *  - fire_event(): mints the event_id and sends the CAPI copy immediately,
+ *    server-side. Only safe for events fired from a request that's never
+ *    served from a page cache to more than one visitor (an ajax response, or
+ *    a page with a naturally unique/per-visitor URL like an order-received
+ *    page).
+ *  - queue_deferred_event(): no event_id yet; the browser mints one and
+ *    reports it back via handle_deferred_event() (admin-ajax.php). Use this
+ *    for anything fired from an ordinary page render a caching plugin might
+ *    serve unchanged to many visitors, so the Pixel event and its CAPI copy
+ *    both stay per-visitor even when the underlying HTML is cached.
  */
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
 class Metatrac_Pixel {
+
+	const DEFERRED_AJAX_ACTION  = 'metatrac_deferred_event';
+	const DEFERRED_NONCE_ACTION = 'metatrac_deferred_event_nonce';
 
 	/**
 	 * Events queued during this request, flushed in the footer.
@@ -27,11 +42,14 @@ class Metatrac_Pixel {
 		add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_frontend_script' ] );
 		add_action( 'wp_head', [ $this, 'output_base_pixel' ], 5 );
 		add_action( 'wp_footer', [ $this, 'output_queue' ], 20 );
+		add_action( 'wp_ajax_' . self::DEFERRED_AJAX_ACTION, [ $this, 'handle_deferred_event' ] );
+		add_action( 'wp_ajax_nopriv_' . self::DEFERRED_AJAX_ACTION, [ $this, 'handle_deferred_event' ] );
 	}
 
 	/**
 	 * Enqueues the small helper script that actually calls fbq() and,
-	 * in debug mode, console.log()s each event.
+	 * in debug mode, console.log()s each event; also hands it the ajax URL
+	 * and a nonce for handle_deferred_event() below.
 	 */
 	public function enqueue_frontend_script() {
 		if ( ! Metatrac_Settings::has_pixel_id() ) {
@@ -40,6 +58,16 @@ class Metatrac_Pixel {
 
 		wp_register_script( 'metatrac-frontend', METATRAC_PLUGIN_URL . 'assets/js/metatrac-frontend.js', [], METATRAC_VERSION, true );
 		wp_enqueue_script( 'metatrac-frontend' );
+
+		wp_localize_script(
+			'metatrac-frontend',
+			'metatracDeferred',
+			[
+				'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+				'action'  => self::DEFERRED_AJAX_ACTION,
+				'nonce'   => wp_create_nonce( self::DEFERRED_NONCE_ACTION ),
+			]
+		);
 	}
 
 	/**
@@ -76,6 +104,68 @@ class Metatrac_Pixel {
 		Metatrac_Logger::log_event( $event_name, $page_url, $event_id, $custom_data );
 
 		return $event_id;
+	}
+
+	/**
+	 * Queues an event for the Pixel without minting an event_id or sending
+	 * its CAPI copy yet. Use this instead of fire_event() for any event
+	 * fired from a normal page render that a page-caching plugin might
+	 * serve unchanged to many different visitors (ViewContent,
+	 * InitiateCheckout, Page Events): fire_event() would bake one real
+	 * event_id into the cached HTML and send exactly one real CAPI call at
+	 * cache-generation time, so every later visitor served that same cached
+	 * page would fire a Pixel event Meta dedupes away against that single
+	 * stale CAPI event, undercounting real traffic for as long as the page
+	 * stays cached.
+	 *
+	 * Instead, metatracFireEvent() (assets/js/metatrac-frontend.js) mints a
+	 * fresh event_id itself when it actually runs in each visitor's browser,
+	 * fires the Pixel call with it immediately, and reports it to
+	 * handle_deferred_event() below via admin-ajax.php so the CAPI call runs
+	 * fresh on every real page load instead of once at render time.
+	 *
+	 * @param string $event_name  Standard Meta event name.
+	 * @param array  $custom_data custom_data payload.
+	 * @param string $page_url    Page the event is associated with.
+	 */
+	public static function queue_deferred_event( $event_name, array $custom_data, $page_url ) {
+		self::$queue[] = [
+			'name'     => $event_name,
+			'params'   => $custom_data,
+			'pageUrl'  => $page_url,
+			'deferred' => true,
+		];
+	}
+
+	/**
+	 * Receives the client-minted event_id and payload for a deferred event
+	 * (see queue_deferred_event()) and sends the matching CAPI event. Runs
+	 * fresh on every real page load via admin-ajax.php, which page caches
+	 * don't serve from cache, unlike the page render that queued the event.
+	 */
+	public function handle_deferred_event() {
+		check_ajax_referer( self::DEFERRED_NONCE_ACTION, 'nonce' );
+
+		$event_name = isset( $_POST['event_name'] ) ? sanitize_text_field( wp_unslash( $_POST['event_name'] ) ) : '';
+		$event_id   = isset( $_POST['event_id'] ) ? sanitize_text_field( wp_unslash( $_POST['event_id'] ) ) : '';
+		$page_url   = isset( $_POST['page_url'] ) ? esc_url_raw( wp_unslash( $_POST['page_url'] ) ) : self::current_url();
+
+		if ( '' === $event_id || ! in_array( $event_name, Metatrac_Settings::standard_events(), true ) ) {
+			wp_send_json_error();
+		}
+
+		$custom_data = [];
+		if ( isset( $_POST['custom_data'] ) ) {
+			$decoded = json_decode( wp_unslash( $_POST['custom_data'] ), true ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.MissingUnslash
+			if ( is_array( $decoded ) ) {
+				$custom_data = $decoded;
+			}
+		}
+
+		( new Metatrac_CAPI() )->send_event( $event_name, $event_id, $custom_data, $page_url );
+		Metatrac_Logger::log_event( $event_name, $page_url, $event_id, $custom_data );
+
+		wp_send_json_success();
 	}
 
 	/**

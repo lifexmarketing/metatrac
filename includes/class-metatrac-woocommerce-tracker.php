@@ -68,6 +68,14 @@ class Metatrac_WooCommerce_Tracker {
 
 	/**
 	 * Tracks ViewContent on single product pages.
+	 *
+	 * Uses queue_deferred_event() rather than fire_event(): product pages
+	 * are exactly the pages a caching plugin is most likely to cache, and
+	 * fire_event() would bake a single real event_id into that cached HTML
+	 * and send exactly one real CAPI call at cache-generation time, which
+	 * Meta would then dedupe every later cached-page visitor's Pixel event
+	 * against, undercounting real views for as long as the page stays
+	 * cached.
 	 */
 	public function track_view_content() {
 		global $product;
@@ -76,7 +84,7 @@ class Metatrac_WooCommerce_Tracker {
 			return;
 		}
 
-		Metatrac_Pixel::fire_event( 'ViewContent', $this->build_product_data( $product, 1 ), Metatrac_Pixel::current_url() );
+		Metatrac_Pixel::queue_deferred_event( 'ViewContent', $this->build_product_data( $product, 1 ), Metatrac_Pixel::current_url() );
 	}
 
 	/**
@@ -212,7 +220,7 @@ class Metatrac_WooCommerce_Tracker {
 			return;
 		}
 
-		Metatrac_Pixel::fire_event( 'InitiateCheckout', $this->build_cart_data( WC()->cart ), Metatrac_Pixel::current_url() );
+		Metatrac_Pixel::queue_deferred_event( 'InitiateCheckout', $this->build_cart_data( WC()->cart ), Metatrac_Pixel::current_url() );
 
 		if ( WC()->session ) {
 			WC()->session->set( 'metatrac_initiate_checkout_hash', $cart_hash );

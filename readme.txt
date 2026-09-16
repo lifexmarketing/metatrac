@@ -4,7 +4,7 @@ Tags: woocommerce, meta, facebook, pixel, conversions api
 Requires at least: 6.0
 Tested up to: 7.0.2
 Requires PHP: 7.4
-Stable tag: 1.4.0
+Stable tag: 1.4.1
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -36,6 +36,18 @@ that page, independent of the events above.
 4. Choose which events to track.
 
 == Changelog ==
+
+= 1.4.1 =
+* Fixed ViewContent, InitiateCheckout, and Page Events being undercounted on
+  any page a caching plugin serves from cache: the event_id used to be
+  minted and sent to the Conversions API at the moment the page was
+  rendered, so a cached page kept serving that same stale event_id to every
+  visitor for as long as the cache entry lived, and Meta deduped all of
+  their Pixel events away against the single real Conversions API call from
+  whenever the cache was generated. Those three events now mint their
+  event_id in the browser on every real page load and report it to the
+  Conversions API via a fresh ajax call, the same way Contact and
+  FindLocation already did, so caching no longer suppresses real events.
 
 = 1.4.0 =
 * Added Page Events: Settings > MetaTrac > Page Events is a repeater of

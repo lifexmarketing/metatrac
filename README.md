@@ -48,6 +48,26 @@ the browser and server copies:
   `fbp`/`fbc` cookies, client IP/user agent, and — when available — a hashed
   email/phone for match quality.
 
+**Page-cache safety:** `ViewContent`, `InitiateCheckout`, and Page Events are
+queued via `Metatrac_Pixel::queue_deferred_event()` rather than
+`fire_event()`, since they fire from an ordinary page render that a caching
+plugin might serve unchanged to many different visitors. `fire_event()`
+mints the `event_id` and sends the CAPI call at render time, which is only
+safe when that specific render is guaranteed to run fresh per visitor (an
+ajax response, or a page with a naturally unique URL like an order-received
+page) — baking a real `event_id` into cached HTML would mean every visitor
+served from that cache entry fires a Pixel event Meta dedupes away against
+the single CAPI call sent when the cache was generated, undercounting real
+traffic for as long as the page stays cached. Deferred events instead mint
+their `event_id` in the browser on every real page load (`metatracFireEvent()`
+in `assets/js/metatrac-frontend.js`) and report it to a dedicated
+`admin-ajax.php` endpoint (`metatrac_deferred_event`) so the CAPI call runs
+fresh every time too — the same approach Contact and FindLocation already
+use below, just applied to page-load events instead of click events.
+`AddToCart` and `Purchase` still use `fire_event()` directly: the ajax
+add-to-cart response is never page-cached, and an order-received URL is
+unique per order.
+
 | Event              | Fires on                                              |
 |---------------------|--------------------------------------------------------|
 | `ViewContent`       | Single product page view                                |
@@ -138,8 +158,8 @@ each row is a page dropdown paired with an event dropdown, with "+ Add Page
 Event" (plain JS, no build step) to add more rows and a "Remove" button on
 each row, so the settings screen only grows with however many mappings are
 actually configured, rather than listing every page on the site. Picking a
-page and event fires that event (via the normal Pixel + CAPI fan-out,
-`Metatrac_Pixel::fire_event()`) on every load of that page, useful for pages
+page and event fires that event (via `Metatrac_Pixel::queue_deferred_event()`
+— see "Page-cache safety" above) on every load of that page, useful for pages
 with no dedicated hook of their own, like a Gravity Forms
 redirect-confirmation "Thank You" page (`CompleteRegistration` or
 `Schedule`), a pricing page (`ViewContent`), or a signup page (`Subscribe`).
