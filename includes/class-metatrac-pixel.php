@@ -44,6 +44,26 @@ class Metatrac_Pixel {
 		add_action( 'wp_footer', [ $this, 'output_queue' ], 20 );
 		add_action( 'wp_ajax_' . self::DEFERRED_AJAX_ACTION, [ $this, 'handle_deferred_event' ] );
 		add_action( 'wp_ajax_nopriv_' . self::DEFERRED_AJAX_ACTION, [ $this, 'handle_deferred_event' ] );
+		add_filter( 'nonce_life', [ __CLASS__, 'extend_nonce_life' ], 10, 2 );
+	}
+
+	/**
+	 * Extends this action's nonce lifetime well past any realistic page
+	 * cache TTL. enqueue_frontend_script() bakes the nonce into a normal
+	 * page render, which is exactly what a caching plugin might serve
+	 * unchanged for far longer than WordPress's default ~12-24 hour nonce
+	 * window, so without this a deferred event on a long-cached page would
+	 * silently fail check_ajax_referer() and lose its CAPI copy (the Pixel
+	 * copy is unaffected either way, since it doesn't depend on the nonce).
+	 * A week comfortably covers realistic cache lifetimes without leaving
+	 * the nonce valid indefinitely.
+	 *
+	 * @param int    $lifetime Default nonce lifetime in seconds.
+	 * @param string $action   The nonce action being ticked.
+	 * @return int
+	 */
+	public static function extend_nonce_life( $lifetime, $action ) {
+		return self::DEFERRED_NONCE_ACTION === $action ? WEEK_IN_SECONDS : $lifetime;
 	}
 
 	/**
@@ -144,11 +164,15 @@ class Metatrac_Pixel {
 	 * don't serve from cache, unlike the page render that queued the event.
 	 */
 	public function handle_deferred_event() {
-		check_ajax_referer( self::DEFERRED_NONCE_ACTION, 'nonce' );
-
 		$event_name = isset( $_POST['event_name'] ) ? sanitize_text_field( wp_unslash( $_POST['event_name'] ) ) : '';
-		$event_id   = isset( $_POST['event_id'] ) ? sanitize_text_field( wp_unslash( $_POST['event_id'] ) ) : '';
-		$page_url   = isset( $_POST['page_url'] ) ? esc_url_raw( wp_unslash( $_POST['page_url'] ) ) : self::current_url();
+
+		if ( ! check_ajax_referer( self::DEFERRED_NONCE_ACTION, 'nonce', false ) ) {
+			Metatrac_Logger::log_nonce_failure( $event_name );
+			wp_send_json_error();
+		}
+
+		$event_id = isset( $_POST['event_id'] ) ? sanitize_text_field( wp_unslash( $_POST['event_id'] ) ) : '';
+		$page_url = isset( $_POST['page_url'] ) ? esc_url_raw( wp_unslash( $_POST['page_url'] ) ) : self::current_url();
 
 		if ( '' === $event_id || ! in_array( $event_name, Metatrac_Settings::standard_events(), true ) ) {
 			wp_send_json_error();

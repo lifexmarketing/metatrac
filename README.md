@@ -68,6 +68,25 @@ use below, just applied to page-load events instead of click events.
 add-to-cart response is never page-cached, and an order-received URL is
 unique per order.
 
+Every one of these `admin-ajax.php` endpoints — `metatrac_deferred_event`,
+`metatrac_contact`, and `metatrac_find_location` — is itself gated by a WP
+nonce that's baked into the same cached page render as the event it's
+authorizing. A plain `wp_create_nonce()` is normally only valid for
+~12-24 hours, which a page cache can easily outlive (some of the cache
+entries that first surfaced the `event_id` bug above were 43-51 hours old),
+so each of the three trackers extends its own nonce's lifetime to a week via
+the `nonce_life` filter (`extend_nonce_life()` in
+`Metatrac_Contact_Tracker`/`Metatrac_Find_Location_Tracker`/`Metatrac_Pixel`).
+That comfortably covers realistic cache TTLs without leaving the nonce valid
+indefinitely.
+
+**Known limitation:** a cache entry that somehow outlives a week without
+being regenerated or purged would still cause that specific event's CAPI
+call to silently fail its nonce check (the Pixel call is unaffected, since
+it doesn't depend on the nonce). Turning on Debug Mode surfaces this as a
+`nonce_check_failed` line in the debug log; previously it failed with no
+trace at all.
+
 | Event              | Fires on                                              |
 |---------------------|--------------------------------------------------------|
 | `ViewContent`       | Single product page view                                |
@@ -193,6 +212,9 @@ When enabled:
   and its payload.
 - CAPI calls become blocking (instead of fire-and-forget) so the HTTP
   response from Meta is also logged.
+- An ajax event (`metatrac_deferred_event`, `metatrac_contact`,
+  `metatrac_find_location`) rejected for a failed nonce check is logged as
+  `nonce_check_failed event=<EventName>` — see "Page-cache safety" above.
 
 Leave debug mode off in normal operation — the CAPI call becomes
 non-blocking and adds no latency to page loads.

@@ -4,7 +4,7 @@ Tags: woocommerce, meta, facebook, pixel, conversions api
 Requires at least: 6.0
 Tested up to: 7.0.2
 Requires PHP: 7.4
-Stable tag: 1.4.1
+Stable tag: 1.4.2
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -36,6 +36,16 @@ that page, independent of the events above.
 4. Choose which events to track.
 
 == Changelog ==
+
+= 1.4.2 =
+* Extended the nonce lifetime for the Contact, FindLocation, and 1.4.1's new
+  deferred-event ajax endpoints from WordPress's default ~12-24 hours to a
+  week: like the event_id fixed in 1.4.1, these nonces are baked into a
+  normal page render, so a page cached longer than the default nonce
+  lifetime would silently fail the ajax call's nonce check and lose that
+  event's Conversions API copy (the Pixel copy was never affected). A failed
+  nonce check is now also logged (as `nonce_check_failed`) when Debug Mode
+  is on, instead of failing with no trace at all.
 
 = 1.4.1 =
 * Fixed ViewContent, InitiateCheckout, and Page Events being undercounted on

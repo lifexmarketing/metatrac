@@ -119,6 +119,32 @@ class Metatrac_Logger {
 	}
 
 	/**
+	 * Logs an ajax request rejected for failing its nonce check — most often
+	 * a nonce that was baked into cached HTML (see the nonce_life filters in
+	 * Metatrac_Contact_Tracker, Metatrac_Find_Location_Tracker, and
+	 * Metatrac_Pixel) and served past its lifetime by a page cache that
+	 * outlived it. Without this, that failure is otherwise completely
+	 * silent: check_ajax_referer() just dies with no application-level
+	 * trace, so a debug-mode site owner would have no way to tell a missing
+	 * CAPI event apart from one that was never queued at all.
+	 *
+	 * @param string $event_name Standard event name the request was for.
+	 */
+	public static function log_nonce_failure( $event_name ) {
+		if ( ! Metatrac_Settings::is_debug() ) {
+			return;
+		}
+
+		self::append(
+			sprintf(
+				"[%s] nonce_check_failed event=%s\n",
+				gmdate( 'Y-m-d H:i:s' ),
+				$event_name
+			)
+		);
+	}
+
+	/**
 	 * Logs the outcome of a Conversions API call.
 	 *
 	 * @param string $event_name Standard event name.

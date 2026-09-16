@@ -37,6 +37,24 @@ class Metatrac_Contact_Tracker {
 		add_action( 'wp_enqueue_scripts', [ $this, 'localize_script' ], 20 );
 		add_action( 'wp_ajax_' . self::AJAX_ACTION, [ $this, 'handle_ajax' ] );
 		add_action( 'wp_ajax_nopriv_' . self::AJAX_ACTION, [ $this, 'handle_ajax' ] );
+		add_filter( 'nonce_life', [ __CLASS__, 'extend_nonce_life' ], 10, 2 );
+	}
+
+	/**
+	 * Extends this action's nonce lifetime well past any realistic page
+	 * cache TTL. localize_script() bakes the nonce into a normal page
+	 * render, which a caching plugin can serve unchanged for far longer
+	 * than WordPress's default ~12-24 hour nonce window, so without this a
+	 * click on a long-cached page would silently fail check_ajax_referer()
+	 * and lose that event's CAPI copy. A week comfortably covers realistic
+	 * cache lifetimes without leaving the nonce valid indefinitely.
+	 *
+	 * @param int    $lifetime Default nonce lifetime in seconds.
+	 * @param string $action   The nonce action being ticked.
+	 * @return int
+	 */
+	public static function extend_nonce_life( $lifetime, $action ) {
+		return self::NONCE_ACTION === $action ? WEEK_IN_SECONDS : $lifetime;
 	}
 
 	/**
@@ -69,7 +87,10 @@ class Metatrac_Contact_Tracker {
 	 * is the first one this session.
 	 */
 	public function handle_ajax() {
-		check_ajax_referer( self::NONCE_ACTION, 'nonce' );
+		if ( ! check_ajax_referer( self::NONCE_ACTION, 'nonce', false ) ) {
+			Metatrac_Logger::log_nonce_failure( 'Contact' );
+			wp_send_json_error();
+		}
 
 		$event_id = isset( $_POST['event_id'] ) ? sanitize_text_field( wp_unslash( $_POST['event_id'] ) ) : '';
 		$page_url = isset( $_POST['page_url'] ) ? esc_url_raw( wp_unslash( $_POST['page_url'] ) ) : Metatrac_Pixel::current_url();
