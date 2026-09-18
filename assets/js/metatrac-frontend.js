@@ -5,8 +5,8 @@
  * into an actual fbq() call (and, in debug mode, a console.log). PHP feeds
  * this function events from:
  *  - the footer queue flush (page-load events, e.g. Purchase, and
- *    AddToCart's non-ajax redirect fallback — id already set — plus
- *    ViewContent, InitiateCheckout, and Page Events — deferred, no id yet)
+ *    AddToCart's non-ajax redirect fallback, id already set; plus
+ *    ViewContent, InitiateCheckout, and Page Events, deferred, no id yet)
  *  - the WooCommerce ajax add-to-cart fragment response (AddToCart, id
  *    already set)
  *

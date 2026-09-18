@@ -31,8 +31,8 @@ the bundled [Plugin Update Checker](https://github.com/YahnisElsts/plugin-update
    events](https://www.facebook.com/business/help/402791146561655?id=1205376682832142)
    to any published page, to fire that event on every load of that page;
    see "Page Events" below.
-6. Optionally turn on **Debug Mode** while verifying a new install — see
-   "Debug mode" below — and turn it back off once confirmed.
+6. Optionally turn on **Debug Mode** while verifying a new install (see
+   "Debug mode" below), and turn it back off once confirmed.
 7. Optionally paste a **Test Event Code** from Events Manager > Test Events
    while verifying CAPI delivery, then remove it.
 
@@ -43,9 +43,9 @@ the browser and server copies:
 
 - **Browser (Pixel)**: `fbq('track', ...)`, queued during page render and
   flushed in the footer (or, for ajax add-to-cart, pushed via a WooCommerce
-  fragment — see below).
+  fragment, see below).
 - **Server (CAPI)**: a `wp_remote_post()` to `graph.facebook.com`, including
-  `fbp`/`fbc` cookies, client IP/user agent, and — when available — a hashed
+  `fbp`/`fbc` cookies, client IP/user agent, and, when available, a hashed
   email/phone for match quality.
 
 **Page-cache safety:** `ViewContent`, `InitiateCheckout`, and Page Events are
@@ -55,21 +55,21 @@ plugin might serve unchanged to many different visitors. `fire_event()`
 mints the `event_id` and sends the CAPI call at render time, which is only
 safe when that specific render is guaranteed to run fresh per visitor (an
 ajax response, or a page with a naturally unique URL like an order-received
-page) — baking a real `event_id` into cached HTML would mean every visitor
+page): baking a real `event_id` into cached HTML would mean every visitor
 served from that cache entry fires a Pixel event Meta dedupes away against
 the single CAPI call sent when the cache was generated, undercounting real
 traffic for as long as the page stays cached. Deferred events instead mint
 their `event_id` in the browser on every real page load (`metatracFireEvent()`
 in `assets/js/metatrac-frontend.js`) and report it to a dedicated
 `admin-ajax.php` endpoint (`metatrac_deferred_event`) so the CAPI call runs
-fresh every time too — the same approach Contact and FindLocation already
+fresh every time too, the same approach Contact and FindLocation already
 use below, just applied to page-load events instead of click events.
 `AddToCart` and `Purchase` still use `fire_event()` directly: the ajax
 add-to-cart response is never page-cached, and an order-received URL is
 unique per order.
 
-Every one of these `admin-ajax.php` endpoints — `metatrac_deferred_event`,
-`metatrac_contact`, and `metatrac_find_location` — is itself gated by a WP
+Every one of these `admin-ajax.php` endpoints (`metatrac_deferred_event`,
+`metatrac_contact`, and `metatrac_find_location`) is itself gated by a WP
 nonce that's baked into the same cached page render as the event it's
 authorizing. A plain `wp_create_nonce()` is normally only valid for
 ~12-24 hours, which a page cache can easily outlive (some of the cache
@@ -160,6 +160,16 @@ switched to "Only these forms," listing every active Gravity Form so
 specific forms (e.g. a newsletter signup) can be excluded from Lead without
 disabling Lead tracking site-wide.
 
+Each form in that list also has its own "Track as Subscribe instead of
+Lead" checkbox, for a form where Subscribe is the more accurate standard
+event (a newsletter signup is a common case: it's a subscription, not a
+sales lead). Checking it only changes which event that form fires
+(`Metatrac_Settings::lead_event_for_form()`); it doesn't add the form to
+tracking on its own, so it still needs to be covered by "All active Gravity
+Forms" or its own checkbox under "Only these forms." A form's Subscribe
+event goes through the exact same fan-out as Lead (Pixel, CAPI, the
+redirect-confirmation cookie replay below), just under a different name.
+
 **Known limitation:** if a form's confirmation is set to "Redirect to a URL"
 or "Redirect to a page," the browser navigates away right after submitting,
 so the browser Pixel call could be lost if the redirect fires before the
@@ -177,8 +187,8 @@ each row is a page dropdown paired with an event dropdown, with "+ Add Page
 Event" (plain JS, no build step) to add more rows and a "Remove" button on
 each row, so the settings screen only grows with however many mappings are
 actually configured, rather than listing every page on the site. Picking a
-page and event fires that event (via `Metatrac_Pixel::queue_deferred_event()`
-— see "Page-cache safety" above) on every load of that page, useful for pages
+page and event fires that event (via `Metatrac_Pixel::queue_deferred_event()`,
+see "Page-cache safety" above) on every load of that page, useful for pages
 with no dedicated hook of their own, like a Gravity Forms
 redirect-confirmation "Thank You" page (`CompleteRegistration` or
 `Schedule`), a pricing page (`ViewContent`), or a signup page (`Subscribe`).
@@ -214,7 +224,7 @@ When enabled:
   response from Meta is also logged.
 - An ajax event (`metatrac_deferred_event`, `metatrac_contact`,
   `metatrac_find_location`) rejected for a failed nonce check is logged as
-  `nonce_check_failed event=<EventName>` — see "Page-cache safety" above.
+  `nonce_check_failed event=<EventName>` (see "Page-cache safety" above).
 
 Leave debug mode off in normal operation — the CAPI call becomes
 non-blocking and adds no latency to page loads.

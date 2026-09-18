@@ -79,15 +79,16 @@ class Metatrac_Settings {
 	 */
 	public static function defaults() {
 		return [
-			'pixel_id'        => '',
-			'access_token'    => '',
-			'test_event_code' => '',
-			'enabled_events'  => self::trackable_events(),
-			'lead_form_mode'  => 'all',
-			'lead_form_ids'   => [],
-			'contact_mailto'  => false,
-			'page_events'     => [],
-			'debug_mode'      => false,
+			'pixel_id'           => '',
+			'access_token'       => '',
+			'test_event_code'    => '',
+			'enabled_events'     => self::trackable_events(),
+			'lead_form_mode'     => 'all',
+			'lead_form_ids'      => [],
+			'subscribe_form_ids' => [],
+			'contact_mailto'     => false,
+			'page_events'        => [],
+			'debug_mode'         => false,
 		];
 	}
 
@@ -158,6 +159,22 @@ class Metatrac_Settings {
 
 		$form_ids = self::get( 'lead_form_ids' );
 		return is_array( $form_ids ) && in_array( (int) $form_id, $form_ids, true );
+	}
+
+	/**
+	 * The standard Meta event a tracked Gravity Forms submission should
+	 * fire: 'Subscribe' for a form picked under Lead's "Track as Subscribe
+	 * instead of Lead" list, 'Lead' (the default) for every other form.
+	 * Independent of is_lead_form_tracked() above: this only decides which
+	 * event name a form that's already being tracked fires, not whether
+	 * it's tracked at all.
+	 *
+	 * @param int $form_id Gravity Forms form ID.
+	 * @return string 'Lead' or 'Subscribe'.
+	 */
+	public static function lead_event_for_form( $form_id ) {
+		$subscribe_form_ids = self::get( 'subscribe_form_ids' );
+		return ( is_array( $subscribe_form_ids ) && in_array( (int) $form_id, $subscribe_form_ids, true ) ) ? 'Subscribe' : 'Lead';
 	}
 
 	/**

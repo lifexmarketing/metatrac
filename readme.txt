@@ -4,7 +4,7 @@ Tags: woocommerce, meta, facebook, pixel, conversions api
 Requires at least: 6.0
 Tested up to: 7.0.2
 Requires PHP: 7.4
-Stable tag: 1.4.2
+Stable tag: 1.5.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -36,6 +36,17 @@ that page, independent of the events above.
 4. Choose which events to track.
 
 == Changelog ==
+
+= 1.5.0 =
+* Added a "Track as Subscribe instead of Lead" checkbox next to each form
+  under Events to Track > Lead > "Only these forms," for a form where
+  Subscribe is the more accurate standard event than Lead (a newsletter
+  signup, for example). It only changes which event that form fires; the
+  form still needs to be covered by "All active Gravity Forms" or its own
+  checkbox to be tracked at all. Everything else about the event (Pixel,
+  Conversions API, and the redirect-confirmation replay for forms whose
+  confirmation redirects) works exactly the same as Lead, just under the
+  Subscribe name.
 
 = 1.4.2 =
 * Extended the nonce lifetime for the Contact, FindLocation, and 1.4.1's new

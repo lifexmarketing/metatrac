@@ -119,7 +119,7 @@ class Metatrac_Logger {
 	}
 
 	/**
-	 * Logs an ajax request rejected for failing its nonce check — most often
+	 * Logs an ajax request rejected for failing its nonce check, most often
 	 * a nonce that was baked into cached HTML (see the nonce_life filters in
 	 * Metatrac_Contact_Tracker, Metatrac_Find_Location_Tracker, and
 	 * Metatrac_Pixel) and served past its lifetime by a page cache that

@@ -3,8 +3,11 @@
  * Class Metatrac_Gravity_Forms_Tracker
  *
  * Tracks a Lead event for every successful Gravity Forms submission, across
- * all forms on the site. gform_after_submission already excludes entries
- * flagged as spam, so no extra filtering is needed here.
+ * all forms on the site (or Subscribe instead, for whichever forms are
+ * picked under Lead's "Track as Subscribe instead of Lead" list, e.g. a
+ * newsletter signup form, where Subscribe is the more accurate standard
+ * event than Lead). gform_after_submission already excludes entries flagged
+ * as spam, so no extra filtering is needed here.
  *
  * For a form whose confirmation just displays a message on the same page,
  * that's the end of it: the event queued in track_lead() flushes normally
@@ -53,7 +56,7 @@ class Metatrac_Gravity_Forms_Tracker {
 	}
 
 	/**
-	 * Fires the Lead event for a submitted entry.
+	 * Fires the Lead (or Subscribe) event for a submitted entry.
 	 *
 	 * @param array $entry Gravity Forms entry.
 	 * @param array $form  Gravity Forms form.
@@ -65,6 +68,8 @@ class Metatrac_Gravity_Forms_Tracker {
 			return;
 		}
 
+		$event_name = Metatrac_Settings::lead_event_for_form( $form_id );
+
 		$custom_data = [
 			'content_name' => isset( $form['title'] ) ? $form['title'] : '',
 		];
@@ -73,11 +78,12 @@ class Metatrac_Gravity_Forms_Tracker {
 		// Metatrac_CAPI hashes both before they ever leave the server.
 		$contact_fields = $this->extract_contact_fields( $form, $entry );
 
-		$event_id = Metatrac_Pixel::fire_event( 'Lead', $custom_data, Metatrac_Pixel::current_url(), $contact_fields );
+		$event_id = Metatrac_Pixel::fire_event( $event_name, $custom_data, Metatrac_Pixel::current_url(), $contact_fields );
 
 		// Stashed in case maybe_defer_for_redirect() decides this submission's
 		// confirmation is about to redirect the browser away.
 		$this->pending_lead_event = [
+			'event'  => $event_name,
 			'params' => $custom_data,
 			'id'     => $event_id,
 		];
@@ -147,12 +153,12 @@ class Metatrac_Gravity_Forms_Tracker {
 	}
 
 	/**
-	 * Fires the Pixel side of a Lead event that was stashed in a cookie
-	 * because its confirmation was about to redirect the browser away. Runs
-	 * on every front-end page load, so it picks the event up on whichever
-	 * page the visitor lands on next (normally the confirmation page). The
-	 * matching CAPI event, sharing the same event_id, was already sent in
-	 * track_lead().
+	 * Fires the Pixel side of a Lead/Subscribe event that was stashed in a
+	 * cookie because its confirmation was about to redirect the browser
+	 * away. Runs on every front-end page load, so it picks the event up on
+	 * whichever page the visitor lands on next (normally the confirmation
+	 * page). The matching CAPI event, sharing the same event_id, was already
+	 * sent in track_lead().
 	 */
 	public function replay_pending_lead() {
 		if ( empty( $_COOKIE[ self::PENDING_LEAD_COOKIE ] ) ) {
@@ -167,12 +173,14 @@ class Metatrac_Gravity_Forms_Tracker {
 			return;
 		}
 
+		$event_name = ! empty( $pending['event'] ) && 'Subscribe' === $pending['event'] ? 'Subscribe' : 'Lead';
+
 		$params = [];
 		if ( ! empty( $pending['params']['content_name'] ) ) {
 			$params['content_name'] = sanitize_text_field( $pending['params']['content_name'] );
 		}
 
-		Metatrac_Pixel::queue_event( 'Lead', $params, sanitize_text_field( $pending['id'] ) );
+		Metatrac_Pixel::queue_event( $event_name, $params, sanitize_text_field( $pending['id'] ) );
 	}
 
 	/**

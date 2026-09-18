@@ -105,11 +105,15 @@ class Metatrac_Admin_Settings {
 			$output['lead_form_mode'] = ( isset( $input['lead_form_mode'] ) && 'selected' === $input['lead_form_mode'] ) ? 'selected' : 'all';
 
 			$posted_form_ids         = ( isset( $input['lead_form_ids'] ) && is_array( $input['lead_form_ids'] ) ) ? array_map( 'intval', $input['lead_form_ids'] ) : [];
-			$active_form_ids         = wp_list_pluck( $this->active_gravity_forms(), 'id' );
-			$output['lead_form_ids'] = array_values( array_intersect( $posted_form_ids, array_map( 'intval', $active_form_ids ) ) );
+			$active_form_ids         = array_map( 'intval', wp_list_pluck( $this->active_gravity_forms(), 'id' ) );
+			$output['lead_form_ids'] = array_values( array_intersect( $posted_form_ids, $active_form_ids ) );
+
+			$posted_subscribe_ids         = ( isset( $input['subscribe_form_ids'] ) && is_array( $input['subscribe_form_ids'] ) ) ? array_map( 'intval', $input['subscribe_form_ids'] ) : [];
+			$output['subscribe_form_ids'] = array_values( array_intersect( $posted_subscribe_ids, $active_form_ids ) );
 		} else {
-			$output['lead_form_mode'] = $current['lead_form_mode'];
-			$output['lead_form_ids']  = $current['lead_form_ids'];
+			$output['lead_form_mode']     = $current['lead_form_mode'];
+			$output['lead_form_ids']      = $current['lead_form_ids'];
+			$output['subscribe_form_ids'] = $current['subscribe_form_ids'];
 		}
 
 		$output['contact_mailto'] = ! empty( $input['contact_mailto'] );
@@ -367,9 +371,10 @@ class Metatrac_Admin_Settings {
 									<?php endif; ?>
 									<?php if ( 'Lead' === $key && $gravity_forms_active ) : ?>
 										<?php
-										$active_forms   = $this->active_gravity_forms();
-										$lead_enabled   = in_array( 'Lead', (array) $settings['enabled_events'], true );
-										$selected_forms = array_map( 'intval', (array) $settings['lead_form_ids'] );
+										$active_forms     = $this->active_gravity_forms();
+										$lead_enabled     = in_array( 'Lead', (array) $settings['enabled_events'], true );
+										$selected_forms   = array_map( 'intval', (array) $settings['lead_form_ids'] );
+										$subscribe_forms  = array_map( 'intval', (array) $settings['subscribe_form_ids'] );
 										?>
 										<div id="metatrac_lead_form_selector" style="margin:0 0 14px 24px;<?php echo $lead_enabled ? '' : 'display:none;'; ?>">
 											<label style="display:block;margin-bottom:4px;">
@@ -385,11 +390,20 @@ class Metatrac_Admin_Settings {
 													<p class="description"><?php esc_html_e( 'No active Gravity Forms found.', 'metatrac' ); ?></p>
 												<?php else : ?>
 													<?php foreach ( $active_forms as $form ) : ?>
-														<label style="display:block;">
-															<input type="checkbox" name="metatrac_settings[lead_form_ids][]" value="<?php echo esc_attr( $form['id'] ); ?>" <?php checked( in_array( (int) $form['id'], $selected_forms, true ) ); ?> />
-															<?php echo esc_html( $form['title'] ); ?>
-														</label>
+														<div style="display:flex;align-items:center;gap:16px;margin-bottom:2px;">
+															<label>
+																<input type="checkbox" name="metatrac_settings[lead_form_ids][]" value="<?php echo esc_attr( $form['id'] ); ?>" <?php checked( in_array( (int) $form['id'], $selected_forms, true ) ); ?> />
+																<?php echo esc_html( $form['title'] ); ?>
+															</label>
+															<label style="font-weight:normal;color:#50575e;">
+																<input type="checkbox" name="metatrac_settings[subscribe_form_ids][]" value="<?php echo esc_attr( $form['id'] ); ?>" <?php checked( in_array( (int) $form['id'], $subscribe_forms, true ) ); ?> />
+																<?php esc_html_e( 'Track as Subscribe instead of Lead', 'metatrac' ); ?>
+															</label>
+														</div>
 													<?php endforeach; ?>
+													<p class="description" style="margin-top:6px;">
+														<?php esc_html_e( '"Track as Subscribe instead of Lead" only changes which event a form fires; it doesn\'t include the form in tracking on its own -- pair it with "All active Gravity Forms" above, or check the form\'s own box under "Only these forms."', 'metatrac' ); ?>
+													</p>
 												<?php endif; ?>
 											</div>
 										</div>
