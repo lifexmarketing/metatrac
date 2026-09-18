@@ -4,7 +4,7 @@ Tags: woocommerce, meta, facebook, pixel, conversions api
 Requires at least: 6.0
 Tested up to: 7.0.2
 Requires PHP: 7.4
-Stable tag: 1.5.0
+Stable tag: 1.5.1
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -36,6 +36,20 @@ that page, independent of the events above.
 4. Choose which events to track.
 
 == Changelog ==
+
+= 1.5.1 =
+* Fixed ViewContent, AddToCart, and InitiateCheckout reporting a $0 value
+  for variable products viewed/added before a variation is chosen, for a
+  variation with no price set directly on it, and for WooCommerce Product
+  Bundles priced as "calculated from bundled items" rather than a fixed
+  amount. Metatrac_WooCommerce_Tracker::resolve_product_price() now walks
+  up to a variation's parent price or down to a variable product's minimum
+  active variation price (WooCommerce's own "From: $X"), and sums a
+  bundle's bundled items, instead of trusting a bare get_price() (which
+  returns '', silently cast to $0, whenever the product has no price of
+  its own to report). Purchase already reported real values and is
+  unaffected: it reads the order's own recorded totals, not a catalog
+  price lookup.
 
 = 1.5.0 =
 * Added a "Track as Subscribe instead of Lead" checkbox next to each form

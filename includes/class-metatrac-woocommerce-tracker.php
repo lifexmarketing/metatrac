@@ -255,6 +255,71 @@ class Metatrac_WooCommerce_Tracker {
 	}
 
 	/**
+	 * A product's per-unit price for event payloads, walking the product
+	 * relationship graph when the product itself has no price of its own
+	 * rather than trusting a bare get_price() (which returns '' in that
+	 * case, silently casting to a $0 value):
+	 *
+	 *  - A variation with no price set on it directly (get_price() returns
+	 *    '') walks up to its parent's price instead, i.e. the parent's
+	 *    minimum active variation price, the same "from" price WooCommerce
+	 *    shows on the product page.
+	 *  - A variable product viewed or added before any variation is
+	 *    resolved, e.g. ViewContent on a variable product's page (get_price()
+	 *    also returns '' with no variation context) walks down to that same
+	 *    minimum active variation price.
+	 *  - A WooCommerce Product Bundle whose own price is "calculated from
+	 *    bundled items" rather than fixed (get_price() again '') walks down
+	 *    into those items and sums their resolved prices. No-ops entirely
+	 *    when the Product Bundles plugin isn't active.
+	 *
+	 * Falls back to 0.0 only when none of that turns up a usable number.
+	 *
+	 * @param WC_Product $product Product (or variation).
+	 * @return float
+	 */
+	private function resolve_product_price( WC_Product $product ) {
+		$price = $product->get_price();
+
+		if ( '' !== $price && is_numeric( $price ) ) {
+			return (float) $price;
+		}
+
+		if ( $product instanceof WC_Product_Variation ) {
+			$parent = wc_get_product( $product->get_parent_id() );
+			if ( $parent instanceof WC_Product ) {
+				return $this->resolve_product_price( $parent );
+			}
+		}
+
+		if ( $product instanceof WC_Product_Variable ) {
+			$min_price = $product->get_variation_price( 'min', true );
+			if ( '' !== $min_price && is_numeric( $min_price ) ) {
+				return (float) $min_price;
+			}
+		}
+
+		if ( class_exists( 'WC_Product_Bundle' ) && $product instanceof WC_Product_Bundle && method_exists( $product, 'get_bundled_items' ) ) {
+			$sum = 0.0;
+			foreach ( (array) $product->get_bundled_items() as $bundled_item ) {
+				if ( ! is_object( $bundled_item ) || ! method_exists( $bundled_item, 'get_product' ) ) {
+					continue;
+				}
+				$bundled_product = $bundled_item->get_product();
+				if ( $bundled_product instanceof WC_Product ) {
+					$bundled_quantity = method_exists( $bundled_item, 'get_quantity' ) ? (int) $bundled_item->get_quantity() : 1;
+					$sum             += $this->resolve_product_price( $bundled_product ) * max( 1, $bundled_quantity );
+				}
+			}
+			if ( $sum > 0 ) {
+				return $sum;
+			}
+		}
+
+		return 0.0;
+	}
+
+	/**
 	 * Builds the standard content payload for a single product/quantity.
 	 *
 	 * @param WC_Product $product  Product.
@@ -262,7 +327,7 @@ class Metatrac_WooCommerce_Tracker {
 	 * @return array
 	 */
 	private function build_product_data( WC_Product $product, $quantity ) {
-		$price = (float) $product->get_price();
+		$price = $this->resolve_product_price( $product );
 
 		return [
 			'content_ids'      => [ (string) $product->get_id() ],
@@ -295,7 +360,7 @@ class Metatrac_WooCommerce_Tracker {
 		foreach ( $cart->get_cart() as $cart_item ) {
 			$product  = $cart_item['data'];
 			$quantity = (int) $cart_item['quantity'];
-			$price    = (float) $product->get_price();
+			$price    = $this->resolve_product_price( $product );
 
 			$content_ids[] = (string) $product->get_id();
 			$contents[]    = [

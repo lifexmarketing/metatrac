@@ -97,6 +97,32 @@ trace at all.
 | `FindLocation`      | First click/tap on a link to Google Maps anywhere on the site (a "Get Directions" link, an embedded map's "View larger map" link, a `goo.gl/maps`/`maps.app.goo.gl` short link, etc.), once per browser session |
 | `Lead`              | A Gravity Forms submission (`gform_after_submission`), for the forms selected in Lead's settings (all active forms by default) |
 
+### Product pricing (variable products and bundles)
+
+`ViewContent`, `AddToCart`, and `InitiateCheckout`'s `value`/`item_price`
+come from `Metatrac_WooCommerce_Tracker::resolve_product_price()`, not a
+bare `$product->get_price()`. A plain `get_price()` returns `''` (which
+casts to a silent `$0`) for a product that has no price of its own to
+report, which is normal for two common WooCommerce catalog shapes:
+
+- **Variable products**: a `WC_Product_Variation` with no price set
+  directly on it walks up to its parent's price (the parent's minimum
+  active variation price, i.e. WooCommerce's own "From: $X" price); a
+  `WC_Product_Variable` viewed or added before any variation is resolved
+  (`ViewContent` on the product page, before the shopper picks options)
+  walks down to that same minimum active variation price instead.
+- **WooCommerce Product Bundles**: a bundle priced as "calculated from
+  bundled items" rather than a fixed amount walks down into those items
+  and sums their resolved prices. This is a no-op on any site without the
+  Product Bundles plugin active.
+
+Falls back to `0.0` only when none of that turns up a usable number
+(e.g. a genuinely out-of-stock/unpriced product). `Purchase`'s values are
+untouched by any of this: `build_order_data()` reads the order's own
+`get_item_total()`/`get_total()`, real transaction data rather than a
+catalog price lookup, so a real $0 line item stays $0 rather than being
+"corrected" to some estimate.
+
 ### AddToCart and ajax carts
 
 WooCommerce's default ajax add-to-cart doesn't reload the page, so there's no
