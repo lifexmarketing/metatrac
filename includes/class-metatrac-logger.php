@@ -119,6 +119,61 @@ class Metatrac_Logger {
 	}
 
 	/**
+	 * Logs a product Metatrac_WooCommerce_Tracker::resolve_product_price()
+	 * couldn't find any usable price for, after walking up to a variation's
+	 * parent, down to a variable product's variations, and down into a
+	 * bundle's required items. Whatever event payload this fed into will
+	 * report a $0 value for it; this line is what tells a debug-mode site
+	 * owner why, and which product to go look at.
+	 *
+	 * @param WC_Product $product The product that resolved to 0.0.
+	 */
+	public static function log_price_resolution_failed( $product ) {
+		if ( ! Metatrac_Settings::is_debug() ) {
+			return;
+		}
+
+		self::append(
+			sprintf(
+				"[%s] price_resolution_failed product_id=%d type=%s own_price=%s\n",
+				gmdate( 'Y-m-d H:i:s' ),
+				$product->get_id(),
+				$product->get_type(),
+				wp_json_encode( $product->get_price() )
+			)
+		);
+	}
+
+	/**
+	 * Logs a bundle add-to-cart where
+	 * Metatrac_WooCommerce_Tracker::resolve_bundle_cart_total() couldn't
+	 * find any cart items linked back to it, so that event's value fell
+	 * back to the bundle's required-items floor instead of the shopper's
+	 * actual selected total. Logs cart_item_data's own top-level keys
+	 * (never its values, which may include customer-entered field data)
+	 * so a real key name can be confirmed against WooCommerce Product
+	 * Bundles' actual behavior if the guessed ones ('bundled_items',
+	 * 'bundled_by') turn out wrong on a given site/version.
+	 *
+	 * @param WC_Product $product        The bundle product.
+	 * @param array      $cart_item_data This add's cart item data.
+	 */
+	public static function log_bundle_cart_link_not_found( $product, array $cart_item_data ) {
+		if ( ! Metatrac_Settings::is_debug() ) {
+			return;
+		}
+
+		self::append(
+			sprintf(
+				"[%s] bundle_cart_link_not_found product_id=%d cart_item_data_keys=%s\n",
+				gmdate( 'Y-m-d H:i:s' ),
+				$product->get_id(),
+				wp_json_encode( array_keys( $cart_item_data ) )
+			)
+		);
+	}
+
+	/**
 	 * Logs an ajax request rejected for failing its nonce check, most often
 	 * a nonce that was baked into cached HTML (see the nonce_life filters in
 	 * Metatrac_Contact_Tracker, Metatrac_Find_Location_Tracker, and

@@ -101,9 +101,10 @@ trace at all.
 
 `ViewContent`, `AddToCart`, and `InitiateCheckout`'s `value`/`item_price`
 come from `Metatrac_WooCommerce_Tracker::resolve_product_price()`, not a
-bare `$product->get_price()`. A plain `get_price()` returns `''` (which
-casts to a silent `$0`) for a product that has no price of its own to
-report, which is normal for two common WooCommerce catalog shapes:
+bare `$product->get_price()`. A plain `get_price()` returns `''`, or
+sometimes a literal `'0'` (both cast to a silent `$0`), for a product that
+has no *usable* price of its own to report, which is normal for two common
+WooCommerce catalog shapes:
 
 - **Variable products**: a `WC_Product_Variation` with no price set
   directly on it walks up to its parent's price (the parent's minimum
@@ -111,17 +112,44 @@ report, which is normal for two common WooCommerce catalog shapes:
   `WC_Product_Variable` viewed or added before any variation is resolved
   (`ViewContent` on the product page, before the shopper picks options)
   walks down to that same minimum active variation price instead.
-- **WooCommerce Product Bundles**: a bundle priced as "calculated from
-  bundled items" rather than a fixed amount walks down into those items
-  and sums their resolved prices. This is a no-op on any site without the
-  Product Bundles plugin active.
+- **WooCommerce Product Bundles**: walks down into the bundle's *required*
+  bundled items (optional add-ons are skipped, since a given add-to-cart
+  might not have included them) and sums their resolved prices. This is
+  the path that actually matters in practice: a bundle whose required item
+  is itself a variable product with no forced default variation can't be
+  priced by WooCommerce up front, so its own `get_price()` comes back as a
+  literal `'0'`, not `''`, which is exactly why every check in this
+  function treats "empty" and "exactly zero" the same way rather than
+  trusting a `'0'` as "genuinely free." This whole branch is a no-op on any
+  site without the Product Bundles plugin active.
 
-Falls back to `0.0` only when none of that turns up a usable number
-(e.g. a genuinely out-of-stock/unpriced product). `Purchase`'s values are
-untouched by any of this: `build_order_data()` reads the order's own
-`get_item_total()`/`get_total()`, real transaction data rather than a
-catalog price lookup, so a real $0 line item stays $0 rather than being
-"corrected" to some estimate.
+Falls back to `0.0` only when none of that turns up a usable number (e.g. a
+genuinely out-of-stock/unpriced product), logged as
+`price_resolution_failed product_id=... type=... own_price=...` in Debug
+Mode so a specific product can be tracked down if this ever needs a closer
+look.
+
+That bundle handling only covers a bundle's *required* items, since that's
+the most a static product definition can promise before anyone's actually
+configured one; it has no way to know which optional add-ons a specific
+shopper picked. `AddToCart` gets a second pass on top of that for exactly
+this reason: `resolve_bundle_cart_total()` looks at the real cart items
+WooCommerce Product Bundles already added for whichever optional add-ons
+this particular shopper checked (they exist as their own cart items linked
+back to the bundle, just hidden from the visible cart table) and, when it
+finds any, uses that real total instead of the required-items floor.
+`ViewContent` and `InitiateCheckout` can't do this (nothing's in the cart
+yet, or the configuration a shopper is currently looking at isn't
+necessarily what ends up in it), so they stay on the required-items
+estimate. Logged as `bundle_cart_link_not_found product_id=... cart_item_data_keys=...`
+in Debug Mode on the rare chance this add-to-cart's linked items can't be
+found (only the cart_item_data key names are logged, never their values,
+since those may include customer-entered field data).
+
+`Purchase`'s values are untouched by any of this: `build_order_data()`
+reads the order's own `get_item_total()`/`get_total()`, real transaction
+data rather than a catalog price lookup, so a real $0 line item stays $0
+rather than being "corrected" to some estimate.
 
 ### AddToCart and ajax carts
 
@@ -251,6 +279,13 @@ When enabled:
 - An ajax event (`metatrac_deferred_event`, `metatrac_contact`,
   `metatrac_find_location`) rejected for a failed nonce check is logged as
   `nonce_check_failed event=<EventName>` (see "Page-cache safety" above).
+- A product `resolve_product_price()` couldn't find any usable price for is
+  logged as `price_resolution_failed product_id=... type=... own_price=...`
+  (see "Product pricing" above).
+- A bundle add-to-cart whose selected optional items couldn't be linked
+  back to it is logged as
+  `bundle_cart_link_not_found product_id=... cart_item_data_keys=...`
+  (see "Product pricing" above).
 
 Leave debug mode off in normal operation — the CAPI call becomes
 non-blocking and adds no latency to page loads.

@@ -106,6 +106,19 @@ class Metatrac_WooCommerce_Tracker {
 		$page_url    = wp_get_referer() ? wp_get_referer() : Metatrac_Pixel::current_url();
 		$custom_data = $this->build_product_data( $product, $quantity );
 
+		// resolve_product_price()'s bundle handling only sums a bundle's
+		// *required* items, the most it can promise from the static product
+		// definition alone; it has no way to know which optional add-ons
+		// this particular shopper picked. But by now WooCommerce Product
+		// Bundles has already added those selections as their own (hidden)
+		// cart items linked back to this one, so use the real total instead
+		// when this specific add-to-cart has one.
+		$bundle_total = $this->resolve_bundle_cart_total( $product, $cart_item_key, $cart_item_data );
+		if ( $bundle_total > 0.0 ) {
+			$custom_data['value']                     = $bundle_total;
+			$custom_data['contents'][0]['item_price'] = $bundle_total / max( 1, $quantity );
+		}
+
 		// Queues it for a normal page render (classic non-ajax add to cart),
 		// sends the CAPI copy, and logs it.
 		$event_id = Metatrac_Pixel::fire_event( 'AddToCart', $custom_data, $page_url );
@@ -256,24 +269,33 @@ class Metatrac_WooCommerce_Tracker {
 
 	/**
 	 * A product's per-unit price for event payloads, walking the product
-	 * relationship graph when the product itself has no price of its own
-	 * rather than trusting a bare get_price() (which returns '' in that
-	 * case, silently casting to a $0 value):
+	 * relationship graph when the product itself has no usable price of its
+	 * own rather than trusting a bare get_price(). That's not just '' (which
+	 * silently casts to $0): a WooCommerce Product Bundle whose price can't
+	 * be pinned down (see below) stores a literal '0' too, so every check
+	 * here treats "empty" and "exactly zero" the same way, as "keep
+	 * looking" rather than "genuinely free" -- a real $0 product has no
+	 * parent/variations/bundled items to fall back to anyway, so this never
+	 * changes the answer for one, only for products that do.
 	 *
-	 *  - A variation with no price set on it directly (get_price() returns
-	 *    '') walks up to its parent's price instead, i.e. the parent's
-	 *    minimum active variation price, the same "from" price WooCommerce
-	 *    shows on the product page.
+	 *  - A variation with no price set on it directly walks up to its
+	 *    parent's price instead, i.e. the parent's minimum active variation
+	 *    price, the same "from" price WooCommerce shows on the product page.
 	 *  - A variable product viewed or added before any variation is
-	 *    resolved, e.g. ViewContent on a variable product's page (get_price()
-	 *    also returns '' with no variation context) walks down to that same
-	 *    minimum active variation price.
-	 *  - A WooCommerce Product Bundle whose own price is "calculated from
-	 *    bundled items" rather than fixed (get_price() again '') walks down
-	 *    into those items and sums their resolved prices. No-ops entirely
-	 *    when the Product Bundles plugin isn't active.
+	 *    resolved, e.g. ViewContent on a variable product's page, walks down
+	 *    to that same minimum active variation price.
+	 *  - A WooCommerce Product Bundle walks down into its *required*
+	 *    bundled items (optional add-ons are skipped, since we don't know
+	 *    whether this particular add was configured with them) and sums
+	 *    their resolved prices. This is what actually fires for a bundle
+	 *    whose required item is itself a variable product with no forced
+	 *    default variation: WooCommerce can't compute a fixed bundle price
+	 *    up front in that case and stores '0' rather than a real number, so
+	 *    this branch has to run instead of the bare get_price() above.
+	 *    No-ops entirely when the Product Bundles plugin isn't active.
 	 *
-	 * Falls back to 0.0 only when none of that turns up a usable number.
+	 * Falls back to 0.0, logged in debug mode for follow-up, only when none
+	 * of that turns up a usable number.
 	 *
 	 * @param WC_Product $product Product (or variation).
 	 * @return float
@@ -281,7 +303,7 @@ class Metatrac_WooCommerce_Tracker {
 	private function resolve_product_price( WC_Product $product ) {
 		$price = $product->get_price();
 
-		if ( '' !== $price && is_numeric( $price ) ) {
+		if ( '' !== $price && is_numeric( $price ) && (float) $price > 0.0 ) {
 			return (float) $price;
 		}
 
@@ -294,7 +316,7 @@ class Metatrac_WooCommerce_Tracker {
 
 		if ( $product instanceof WC_Product_Variable ) {
 			$min_price = $product->get_variation_price( 'min', true );
-			if ( '' !== $min_price && is_numeric( $min_price ) ) {
+			if ( '' !== $min_price && is_numeric( $min_price ) && (float) $min_price > 0.0 ) {
 				return (float) $min_price;
 			}
 		}
@@ -305,16 +327,80 @@ class Metatrac_WooCommerce_Tracker {
 				if ( ! is_object( $bundled_item ) || ! method_exists( $bundled_item, 'get_product' ) ) {
 					continue;
 				}
+
+				// Only guaranteed (required) bundled items count toward
+				// this estimate; an optional add-on the shopper may not
+				// have picked would inflate it unpredictably.
+				if ( method_exists( $bundled_item, 'is_optional' ) && $bundled_item->is_optional() ) {
+					continue;
+				}
+
 				$bundled_product = $bundled_item->get_product();
 				if ( $bundled_product instanceof WC_Product ) {
 					$bundled_quantity = method_exists( $bundled_item, 'get_quantity' ) ? (int) $bundled_item->get_quantity() : 1;
 					$sum             += $this->resolve_product_price( $bundled_product ) * max( 1, $bundled_quantity );
 				}
 			}
-			if ( $sum > 0 ) {
+			if ( $sum > 0.0 ) {
 				return $sum;
 			}
 		}
+
+		Metatrac_Logger::log_price_resolution_failed( $product );
+
+		return 0.0;
+	}
+
+	/**
+	 * The real total for a specific bundle add-to-cart, including whichever
+	 * optional bundled items this shopper actually checked, not just the
+	 * bundle's required-items floor from resolve_product_price(). Each
+	 * selected bundled item (required or optional) exists as its own cart
+	 * item by the time this fires, linked back to the parent bundle's own
+	 * cart_item_key, but hidden from the visible cart table
+	 * (woocommerce_cart_item_visible) rather than shown as its own line, so
+	 * it's easy for something reading the cart to miss it entirely. Tries
+	 * both ways WooCommerce Product Bundles is known to expose that link
+	 * (an explicit list of child keys on the bundle's own cart item data, or
+	 * each child pointing back via its own 'bundled_by'), since which one is
+	 * present isn't fully pinned down without the plugin's own source to
+	 * check against.
+	 *
+	 * @param WC_Product $product        The product added (the bundle, if it is one).
+	 * @param string     $cart_item_key  This add's own cart item key.
+	 * @param array      $cart_item_data This add's cart item data, as passed to the woocommerce_add_to_cart hook.
+	 * @return float 0.0 if this isn't a bundle, or no linked cart items were found for it.
+	 */
+	private function resolve_bundle_cart_total( WC_Product $product, $cart_item_key, array $cart_item_data ) {
+		if ( ! class_exists( 'WC_Product_Bundle' ) || ! $product instanceof WC_Product_Bundle || ! WC()->cart ) {
+			return 0.0;
+		}
+
+		$child_keys = [];
+		if ( ! empty( $cart_item_data['bundled_items'] ) && is_array( $cart_item_data['bundled_items'] ) ) {
+			$child_keys = array_values( $cart_item_data['bundled_items'] );
+		}
+
+		$sum   = 0.0;
+		$found = false;
+
+		foreach ( WC()->cart->get_cart() as $key => $item ) {
+			$is_child = in_array( $key, $child_keys, true )
+				|| ( ! empty( $item['bundled_by'] ) && $cart_item_key === $item['bundled_by'] );
+
+			if ( ! $is_child || empty( $item['data'] ) || ! $item['data'] instanceof WC_Product ) {
+				continue;
+			}
+
+			$found = true;
+			$sum  += $this->resolve_product_price( $item['data'] ) * (int) $item['quantity'];
+		}
+
+		if ( $found ) {
+			return $sum;
+		}
+
+		Metatrac_Logger::log_bundle_cart_link_not_found( $product, $cart_item_data );
 
 		return 0.0;
 	}

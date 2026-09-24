@@ -4,11 +4,11 @@ Tags: woocommerce, meta, facebook, pixel, conversions api
 Requires at least: 6.0
 Tested up to: 7.0.2
 Requires PHP: 7.4
-Stable tag: 1.5.1
+Stable tag: 1.5.2
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
-Tracks PageView, Contact, FindLocation, and Lead events, plus WooCommerce ecommerce events when WooCommerce is active, and sends them to Meta via the Pixel and the Conversions API.
+Meta Pixel and CAPI tracking for standard, WooCommerce, and Gravity Forms events, with a debug mode.
 
 == Description ==
 
@@ -36,6 +36,32 @@ that page, independent of the events above.
 4. Choose which events to track.
 
 == Changelog ==
+
+= 1.5.2 =
+* Fixed a case 1.5.1 missed: a WooCommerce Product Bundle whose required
+  item is itself a variable product with no forced default variation can't
+  be priced by WooCommerce up front, so its own get_price() comes back as a
+  literal '0', not ''. resolve_product_price() now treats "empty" and
+  "exactly zero" the same way (as "keep looking") instead of trusting a
+  literal 0 as a genuinely free product, and its bundle fallback now sums
+  only the bundle's required items (skipping optional add-ons a given
+  add-to-cart might not have included) rather than every bundled item.
+* AddToCart now reports a bundle's real selected total on top of that,
+  including whichever optional add-ons a shopper actually checked, instead
+  of just what the required-items fix above can account for. Those selections
+  already exist as their own cart items by the time AddToCart fires
+  (WooCommerce Product Bundles links them back to the bundle's cart item,
+  hidden from the visible cart table but still present), so
+  resolve_bundle_cart_total() sums those instead. ViewContent and
+  InitiateCheckout are unchanged: nothing's in the cart yet to sum.
+  Confirmed live on ibullmfg.com, where a $1,297 bundle with 3 selected
+  add-ons was reporting only the base $1,297, then $1,911 once both of the
+  above were in place.
+* Added price_resolution_failed and bundle_cart_link_not_found debug-log
+  lines for a product/bundle either of the above still can't find a usable
+  price for, since a silent $0 with no trace of why isn't good enough.
+* Shortened the plugin description shown on the Plugins screen, and
+  updated Plugin URI to the GitHub repo.
 
 = 1.5.1 =
 * Fixed ViewContent, AddToCart, and InitiateCheckout reporting a $0 value
