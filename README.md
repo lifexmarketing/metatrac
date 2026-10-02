@@ -254,6 +254,32 @@ actual published pages and Meta's actual standard event list on every save,
 so a page that's since been trashed or unpublished can't linger as a stale,
 invisible mapping.
 
+## Do Not Track / Global Privacy Control
+
+The **Privacy Signals** setting (on by default) skips all Meta tracking for
+any visitor whose browser sends a Do Not Track (`DNT: 1`) or Global Privacy
+Control (`Sec-GPC: 1`) signal. GPC is included because it's the signal
+browsers actively ship today (Safari dropped DNT, Firefox removed its DNT
+toggle) and the one with legal weight under CCPA/CPRA and similar state laws.
+
+It's checked in two places, for page-cache safety:
+
+- **Pixel (browser):** the base snippet in `wp_head` checks
+  `navigator.globalPrivacyControl` / `navigator.doNotTrack` before loading
+  `fbevents.js`, and sets `window.metatracOptedOut`. `metatracFireEvent()`
+  and the Contact/FindLocation click listeners check that flag too, so
+  nothing reaches `fbq()` (even one loaded by another plugin) and no
+  deferred/contact/find-location CAPI request is sent. This can't be a PHP
+  header check, because the page render is what a cache serves to everyone.
+- **CAPI (server):** `Metatrac_CAPI::send_event()` checks the `DNT` /
+  `Sec-GPC` request headers via `Metatrac_Settings::visitor_opted_out()`.
+  Every CAPI send runs on an uncached request (admin-ajax, a form submit,
+  the order-received page), so the headers there belong to the real visitor.
+
+Known gap: the `<noscript>` PageView image can't check either signal, so a
+visitor with JavaScript disabled *and* DNT/GPC on still sends that one
+PageView pixel hit.
+
 ## Debug mode
 
 When enabled:
@@ -286,6 +312,9 @@ When enabled:
   back to it is logged as
   `bundle_cart_link_not_found product_id=... cart_item_data_keys=...`
   (see "Product pricing" above).
+- A CAPI event skipped because the visitor sent DNT/GPC is logged as
+  `capi_skipped_opted_out event=... event_id=...`, and the browser console
+  shows `Do Not Track / Global Privacy Control detected; Meta Pixel not loaded.`
 
 Leave debug mode off in normal operation — the CAPI call becomes
 non-blocking and adds no latency to page loads.

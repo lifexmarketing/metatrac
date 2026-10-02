@@ -3,7 +3,7 @@
  * Plugin Name: MetaTrac
  * Plugin URI: https://github.com/lifexmarketing/metatrac
  * Description: Meta Pixel and CAPI tracking for standard, WooCommerce, and Gravity Forms events, with a debug mode.
- * Version: 1.5.2
+ * Version: 1.6.0
  * Author: LifeX Marketing
  * Author URI: https://www.lifexmarketing.com
  * License: GPL-2.0+
@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define plugin constants for easy referencing.
-define( 'METATRAC_VERSION', '1.5.2' );
+define( 'METATRAC_VERSION', '1.6.0' );
 define( 'METATRAC_PLUGIN_PATH', plugin_dir_path( __FILE__ ) );
 define( 'METATRAC_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'METATRAC_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );

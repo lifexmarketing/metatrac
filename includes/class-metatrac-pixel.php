@@ -202,9 +202,22 @@ class Metatrac_Pixel {
 		}
 
 		$debug = Metatrac_Settings::is_debug();
+
+		// The Do Not Track / Global Privacy Control check runs here in the
+		// browser rather than against the request headers in PHP: this markup
+		// is exactly what a page cache serves unchanged to every visitor, so a
+		// server-side check would bake one visitor's choice in for everyone.
+		// metatracFireEvent() and the Contact/FindLocation listeners
+		// (assets/js/metatrac-frontend.js) honor the same flag.
+		$honor_dnt = Metatrac_Settings::is_honor_dnt();
 		?>
 		<script>
 		window.metatracDebug = <?php echo $debug ? 'true' : 'false'; ?>;
+		window.metatracOptedOut = <?php echo $honor_dnt ? 'true' : 'false'; ?> && (
+			navigator.globalPrivacyControl === true ||
+			['1', 'yes'].indexOf(String(navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack)) !== -1
+		);
+		if (!window.metatracOptedOut) {
 		!function(f,b,e,v,n,t,s)
 		{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
 		n.callMethod.apply(n,arguments):n.queue.push(arguments)};
@@ -218,6 +231,9 @@ class Metatrac_Pixel {
 		<?php if ( $debug ) : ?>
 		console.log('[MetaTrac] Event fired: PageView');
 		<?php endif; ?>
+		}<?php if ( $debug ) : ?> else {
+		console.log('[MetaTrac] Do Not Track / Global Privacy Control detected; Meta Pixel not loaded.');
+		}<?php endif; ?>
 		</script>
 		<noscript><img height="1" width="1" style="display:none" alt=""
 			src="https://www.facebook.com/tr?id=<?php echo esc_attr( $pixel_id ); ?>&ev=PageView&noscript=1" /></noscript>

@@ -26,6 +26,11 @@ class Metatrac_CAPI {
 			return;
 		}
 
+		if ( Metatrac_Settings::visitor_opted_out() ) {
+			Metatrac_Logger::log_opted_out( $event_name, $event_id );
+			return;
+		}
+
 		$payload = [
 			'data' => [
 				[

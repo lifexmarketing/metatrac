@@ -17,6 +17,12 @@
  * This function mints the id itself, fires the Pixel call with it right
  * away, and reports it to metatracDeferred.action (admin-ajax.php) so the
  * matching CAPI call runs fresh on every real page load instead.
+ *
+ * window.metatracOptedOut (set by the base pixel snippet in wp_head, see
+ * Metatrac_Pixel::output_base_pixel()) is true when the site honors Do Not
+ * Track / Global Privacy Control and this visitor's browser sends either
+ * one. Everything below checks it before any fbq() call or CAPI request,
+ * since another plugin may still have loaded its own fbq.
  */
 function metatracGenerateEventId() {
 	if ( window.crypto && typeof window.crypto.randomUUID === 'function' ) {
@@ -28,7 +34,7 @@ function metatracGenerateEventId() {
 }
 
 window.metatracFireEvent = function ( evt ) {
-	if ( ! evt || ! evt.name ) {
+	if ( ! evt || ! evt.name || window.metatracOptedOut ) {
 		return;
 	}
 
@@ -65,7 +71,7 @@ window.metatracFireEvent = function ( evt ) {
  * the two is enabled, so its absence means there's nothing to listen for.
  */
 ( function () {
-	if ( ! window.metatracContact ) {
+	if ( ! window.metatracContact || window.metatracOptedOut ) {
 		return;
 	}
 
@@ -135,7 +141,7 @@ window.metatracFireEvent = function ( evt ) {
  * listen for.
  */
 ( function () {
-	if ( ! window.metatracFindLocation ) {
+	if ( ! window.metatracFindLocation || window.metatracOptedOut ) {
 		return;
 	}
 

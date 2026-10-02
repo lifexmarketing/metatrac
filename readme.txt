@@ -4,7 +4,7 @@ Tags: woocommerce, meta, facebook, pixel, conversions api
 Requires at least: 6.0
 Tested up to: 7.0.2
 Requires PHP: 7.4
-Stable tag: 1.5.2
+Stable tag: 1.6.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -36,6 +36,16 @@ that page, independent of the events above.
 4. Choose which events to track.
 
 == Changelog ==
+
+= 1.6.0 =
+* New Privacy Signals setting (on by default): visitors whose browser sends
+  a Do Not Track or Global Privacy Control signal get no Meta Pixel and no
+  Conversions API events. The Pixel side is checked in the browser
+  (navigator.doNotTrack / navigator.globalPrivacyControl) so it stays
+  correct behind page caching; the CAPI side is checked against the DNT /
+  Sec-GPC request headers in Metatrac_CAPI::send_event(), which only ever
+  runs on uncached requests. Skipped CAPI events are logged as
+  capi_skipped_opted_out in debug mode.
 
 = 1.5.2 =
 * Fixed a case 1.5.1 missed: a WooCommerce Product Bundle whose required

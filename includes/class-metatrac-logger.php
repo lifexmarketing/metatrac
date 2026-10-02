@@ -200,6 +200,30 @@ class Metatrac_Logger {
 	}
 
 	/**
+	 * Logs a CAPI event that was skipped because the visitor sent a Do Not
+	 * Track or Global Privacy Control signal (see
+	 * Metatrac_Settings::visitor_opted_out()).
+	 *
+	 * @param string $event_name Event name.
+	 * @param string $event_id   Shared pixel/CAPI dedupe id.
+	 */
+	public static function log_opted_out( $event_name, $event_id ) {
+		if ( ! Metatrac_Settings::is_debug() ) {
+			return;
+		}
+
+		self::append(
+			sprintf(
+				"[%s] capi_skipped_opted_out event=%s event_id=%s
+",
+				gmdate( 'Y-m-d H:i:s' ),
+				$event_name,
+				$event_id
+			)
+		);
+	}
+
+	/**
 	 * Logs the outcome of a Conversions API call.
 	 *
 	 * @param string $event_name Standard event name.
