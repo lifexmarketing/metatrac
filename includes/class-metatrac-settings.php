@@ -164,8 +164,8 @@ class Metatrac_Settings {
 
 	/**
 	 * The standard Meta event a tracked Gravity Forms submission should
-	 * fire: 'Subscribe' for a form picked under Lead's "Track as Subscribe
-	 * instead of Lead" list, 'Lead' (the default) for every other form.
+	 * fire: 'Subscribe' for a form set to "Track as: Subscribe" under
+	 * Lead's form list, 'Lead' (the default) for every other form.
 	 * Independent of is_lead_form_tracked() above: this only decides which
 	 * event name a form that's already being tracked fires, not whether
 	 * it's tracked at all.

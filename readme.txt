@@ -4,7 +4,7 @@ Tags: woocommerce, meta, facebook, pixel, conversions api
 Requires at least: 6.0
 Tested up to: 7.0.2
 Requires PHP: 7.4
-Stable tag: 1.6.0
+Stable tag: 1.6.1
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -36,6 +36,26 @@ that page, independent of the events above.
 4. Choose which events to track.
 
 == Changelog ==
+
+= 1.6.1 =
+* Better CAPI match quality for Lead: email and phone are now also found in
+  single-line text fields whose label, admin label, placeholder, parameter
+  name, autocomplete attribute or CSS class names them (and whose value
+  validates), not only native Email/Phone fields. Hidden fields are skipped.
+  Sites can pin exact fields with the metatrac_lead_contact_fields filter.
+* Phone numbers are hashed with a country code, as Meta requires; a 10-digit
+  number gets "1" prepended (filterable via
+  metatrac_default_phone_country_code). Numbers outside 11-15 digits are
+  no longer sent.
+* Deferred events (ViewContent, InitiateCheckout, Page Events) now wait up
+  to 1.5s for fbevents.js to set _fbp, then send fbp/fbc from the browser
+  along with the CAPI copy, so first page views carry them too. They use the
+  browser's real URL instead of the possibly cached one, and send with
+  sendBeacon if the visitor leaves first.
+* fbc built from a fbclid now uses a millisecond creation time, as Meta
+  specifies.
+* Lead's per-form "Track as Subscribe instead of Lead" checkbox is now a
+  "Track as: Lead / Subscribe" radio.
 
 = 1.6.0 =
 * New Privacy Signals setting (on by default): visitors whose browser sends

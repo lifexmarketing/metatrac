@@ -108,7 +108,16 @@ class Metatrac_Admin_Settings {
 			$active_form_ids         = array_map( 'intval', wp_list_pluck( $this->active_gravity_forms(), 'id' ) );
 			$output['lead_form_ids'] = array_values( array_intersect( $posted_form_ids, $active_form_ids ) );
 
-			$posted_subscribe_ids         = ( isset( $input['subscribe_form_ids'] ) && is_array( $input['subscribe_form_ids'] ) ) ? array_map( 'intval', $input['subscribe_form_ids'] ) : [];
+			// Each form's "Track as" radio posts form_event[<id>] => Lead|Subscribe;
+			// only the Subscribe picks are stored, Lead being the default.
+			$posted_subscribe_ids = [];
+			if ( isset( $input['form_event'] ) && is_array( $input['form_event'] ) ) {
+				foreach ( $input['form_event'] as $form_id => $event ) {
+					if ( 'Subscribe' === $event ) {
+						$posted_subscribe_ids[] = (int) $form_id;
+					}
+				}
+			}
 			$output['subscribe_form_ids'] = array_values( array_intersect( $posted_subscribe_ids, $active_form_ids ) );
 		} else {
 			$output['lead_form_mode']     = $current['lead_form_mode'];
@@ -396,14 +405,22 @@ class Metatrac_Admin_Settings {
 																<input type="checkbox" name="metatrac_settings[lead_form_ids][]" value="<?php echo esc_attr( $form['id'] ); ?>" <?php checked( in_array( (int) $form['id'], $selected_forms, true ) ); ?> />
 																<?php echo esc_html( $form['title'] ); ?>
 															</label>
-															<label style="font-weight:normal;color:#50575e;">
-																<input type="checkbox" name="metatrac_settings[subscribe_form_ids][]" value="<?php echo esc_attr( $form['id'] ); ?>" <?php checked( in_array( (int) $form['id'], $subscribe_forms, true ) ); ?> />
-																<?php esc_html_e( 'Track as Subscribe instead of Lead', 'metatrac' ); ?>
-															</label>
+															<?php $is_subscribe = in_array( (int) $form['id'], $subscribe_forms, true ); ?>
+															<span style="font-weight:normal;color:#50575e;">
+																<?php esc_html_e( 'Track as:', 'metatrac' ); ?>
+																<label style="margin-left:6px;">
+																	<input type="radio" name="metatrac_settings[form_event][<?php echo esc_attr( $form['id'] ); ?>]" value="Lead" <?php checked( ! $is_subscribe ); ?> />
+																	<?php esc_html_e( 'Lead', 'metatrac' ); ?>
+																</label>
+																<label style="margin-left:6px;">
+																	<input type="radio" name="metatrac_settings[form_event][<?php echo esc_attr( $form['id'] ); ?>]" value="Subscribe" <?php checked( $is_subscribe ); ?> />
+																	<?php esc_html_e( 'Subscribe', 'metatrac' ); ?>
+																</label>
+															</span>
 														</div>
 													<?php endforeach; ?>
 													<p class="description" style="margin-top:6px;">
-														<?php esc_html_e( '"Track as Subscribe instead of Lead" only changes which event a form fires; it doesn\'t include the form in tracking on its own -- pair it with "All active Gravity Forms" above, or check the form\'s own box under "Only these forms."', 'metatrac' ); ?>
+														<?php esc_html_e( '"Track as" only changes which event a form fires; it doesn\'t include the form in tracking on its own -- pair it with "All active Gravity Forms" above, or check the form\'s own box under "Only these forms."', 'metatrac' ); ?>
 													</p>
 												<?php endif; ?>
 											</div>

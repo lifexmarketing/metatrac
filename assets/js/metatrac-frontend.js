@@ -49,18 +49,87 @@ window.metatracFireEvent = function ( evt ) {
 	}
 
 	if ( evt.deferred && eventId && window.metatracDeferred ) {
+		metatracSendDeferred( evt, eventId );
+	}
+};
+
+function metatracReadCookie( name ) {
+	var match = document.cookie.match( new RegExp( '(?:^|; )' + name + '=([^;]*)' ) );
+	return match ? decodeURIComponent( match[ 1 ] ) : '';
+}
+
+/**
+ * _fbc, or one built from a fbclid on this page's URL when fbevents.js
+ * hasn't written the cookie yet. The server can't do this itself for
+ * deferred events, since the admin-ajax request carries no fbclid.
+ */
+function metatracResolveFbc() {
+	var fbc = metatracReadCookie( '_fbc' );
+	if ( fbc ) {
+		return fbc;
+	}
+	var fbclid = new URLSearchParams( window.location.search ).get( 'fbclid' );
+	return fbclid ? 'fb.1.' + Date.now() + '.' + fbclid : '';
+}
+
+/**
+ * Posts a deferred event's CAPI copy. On a visitor's first page view this
+ * usually runs before fbevents.js has loaded and set _fbp, so the server
+ * would read an empty cookie; instead this waits up to 1.5s for _fbp and
+ * sends fbp/fbc in the body. If the visitor leaves first, it sends right
+ * away with whatever it has, rather than losing the event.
+ */
+function metatracSendDeferred( evt, eventId ) {
+	var MAX_WAIT_MS = 1500;
+	var POLL_MS     = 100;
+	var waited      = 0;
+	var sent        = false;
+	var timer;
+
+	function send( leaving ) {
+		if ( sent ) {
+			return;
+		}
+		sent = true;
+		clearTimeout( timer );
+		window.removeEventListener( 'pagehide', onPageHide );
+
 		var body = new URLSearchParams( {
 			action: window.metatracDeferred.action,
 			nonce: window.metatracDeferred.nonce,
 			event_name: evt.name,
 			event_id: eventId,
-			page_url: evt.pageUrl || window.location.href,
-			custom_data: JSON.stringify( evt.params || {} )
+			// The browser's own URL, not evt.pageUrl: that was rendered into
+			// HTML a page cache may be serving to every visitor, fbclid and all.
+			page_url: window.location.href,
+			custom_data: JSON.stringify( evt.params || {} ),
+			fbp: metatracReadCookie( '_fbp' ),
+			fbc: metatracResolveFbc()
 		} );
 
-		fetch( window.metatracDeferred.ajaxUrl, { method: 'POST', body: body } );
+		if ( leaving && navigator.sendBeacon ) {
+			navigator.sendBeacon( window.metatracDeferred.ajaxUrl, body );
+		} else {
+			fetch( window.metatracDeferred.ajaxUrl, { method: 'POST', body: body, keepalive: true } );
+		}
 	}
-};
+
+	function onPageHide() {
+		send( true );
+	}
+
+	function poll() {
+		if ( metatracReadCookie( '_fbp' ) || waited >= MAX_WAIT_MS ) {
+			send( false );
+			return;
+		}
+		waited += POLL_MS;
+		timer = setTimeout( poll, POLL_MS );
+	}
+
+	window.addEventListener( 'pagehide', onPageHide );
+	poll();
+}
 
 /**
  * Contact event: fires once per browser session on the first click/tap of a

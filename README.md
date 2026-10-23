@@ -214,10 +214,10 @@ switched to "Only these forms," listing every active Gravity Form so
 specific forms (e.g. a newsletter signup) can be excluded from Lead without
 disabling Lead tracking site-wide.
 
-Each form in that list also has its own "Track as Subscribe instead of
-Lead" checkbox, for a form where Subscribe is the more accurate standard
-event (a newsletter signup is a common case: it's a subscription, not a
-sales lead). Checking it only changes which event that form fires
+Each form in that list also has its own "Track as: Lead / Subscribe"
+radio (Lead by default), for a form where Subscribe is the more accurate
+standard event (a newsletter signup is a common case: it's a subscription,
+not a sales lead). Choosing Subscribe only changes which event that form fires
 (`Metatrac_Settings::lead_event_for_form()`); it doesn't add the form to
 tracking on its own, so it still needs to be covered by "All active Gravity
 Forms" or its own checkbox under "Only these forms." A form's Subscribe

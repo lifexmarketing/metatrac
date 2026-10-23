@@ -19,7 +19,7 @@ class Metatrac_CAPI {
 	 * @param string $event_id         Shared pixel/CAPI dedupe id.
 	 * @param array  $custom_data      The event's custom_data payload (value, currency, contents, ...).
 	 * @param string $event_source_url The page the event is associated with.
-	 * @param array  $extra_user_data  Optional overrides: [ 'email' => ..., 'phone' => ... ].
+	 * @param array  $extra_user_data  Optional overrides: [ 'email' => ..., 'phone' => ..., 'fbp' => ..., 'fbc' => ... ].
 	 */
 	public function send_event( $event_name, $event_id, array $custom_data, $event_source_url, array $extra_user_data = [] ) {
 		if ( ! Metatrac_Settings::can_use_capi() ) {
@@ -80,19 +80,29 @@ class Metatrac_CAPI {
 	 * Builds the user_data object: cookies/IP/UA always, plus hashed
 	 * email/phone/external_id when available, for better Meta match quality.
 	 *
-	 * @param array $extra [ 'email' => ..., 'phone' => ... ].
+	 * fbp/fbc passed in $extra (read by the browser, see
+	 * handle_deferred_event()) win over this request's cookies, as long as
+	 * they look like real Meta browser/click IDs.
+	 *
+	 * @param array $extra [ 'email' => ..., 'phone' => ..., 'fbp' => ..., 'fbc' => ... ].
 	 * @return array
 	 */
 	private function build_user_data( array $extra ) {
 		$data = [];
 
-		if ( ! empty( $_COOKIE['_fbp'] ) ) {
+		if ( ! empty( $extra['fbp'] ) && preg_match( '/^fb\.\d\.\d+\.\d+$/', $extra['fbp'] ) ) {
+			$data['fbp'] = $extra['fbp'];
+		} elseif ( ! empty( $_COOKIE['_fbp'] ) ) {
 			$data['fbp'] = sanitize_text_field( wp_unslash( $_COOKIE['_fbp'] ) );
 		}
 
-		$fbc = $this->resolve_fbc();
-		if ( $fbc ) {
-			$data['fbc'] = $fbc;
+		if ( ! empty( $extra['fbc'] ) && preg_match( '/^fb\.\d\.\d+\.\S+$/', $extra['fbc'] ) ) {
+			$data['fbc'] = $extra['fbc'];
+		} else {
+			$fbc = $this->resolve_fbc();
+			if ( $fbc ) {
+				$data['fbc'] = $fbc;
+			}
 		}
 
 		$ip = $this->get_client_ip();
@@ -111,9 +121,15 @@ class Metatrac_CAPI {
 			$data['em'] = $this->hash( strtolower( trim( $email ) ) );
 		}
 
+		// Meta requires the country code in ph; a 10-digit US number hashed
+		// without the leading 1 never matches, even though Events Manager
+		// still counts the parameter as covered.
 		if ( $phone ) {
 			$digits = preg_replace( '/\D+/', '', $phone );
-			if ( $digits ) {
+			if ( 10 === strlen( $digits ) ) {
+				$digits = apply_filters( 'metatrac_default_phone_country_code', '1', $phone ) . $digits;
+			}
+			if ( strlen( $digits ) >= 11 && strlen( $digits ) <= 15 ) {
 				$data['ph'] = $this->hash( $digits );
 			}
 		}
@@ -139,7 +155,8 @@ class Metatrac_CAPI {
 		}
 
 		if ( ! empty( $_GET['fbclid'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification
-			return 'fb.1.' . time() . '.' . sanitize_text_field( wp_unslash( $_GET['fbclid'] ) ); // phpcs:ignore WordPress.Security.NonceVerification
+			// Meta's creation time is in milliseconds.
+			return 'fb.1.' . (int) ( microtime( true ) * 1000 ) . '.' . sanitize_text_field( wp_unslash( $_GET['fbclid'] ) ); // phpcs:ignore WordPress.Security.NonceVerification
 		}
 
 		return '';

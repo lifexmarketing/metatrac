@@ -186,7 +186,16 @@ class Metatrac_Pixel {
 			}
 		}
 
-		( new Metatrac_CAPI() )->send_event( $event_name, $event_id, $custom_data, $page_url );
+		// Read from the browser after fbevents.js had a chance to set them;
+		// the request's own cookies may predate that on a first page view.
+		$browser_ids = [];
+		foreach ( [ 'fbp', 'fbc' ] as $key ) {
+			if ( ! empty( $_POST[ $key ] ) ) {
+				$browser_ids[ $key ] = sanitize_text_field( wp_unslash( $_POST[ $key ] ) );
+			}
+		}
+
+		( new Metatrac_CAPI() )->send_event( $event_name, $event_id, $custom_data, $page_url, $browser_ids );
 		Metatrac_Logger::log_event( $event_name, $page_url, $event_id, $custom_data );
 
 		wp_send_json_success();

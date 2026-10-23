@@ -4,7 +4,7 @@
  *
  * Tracks a Lead event for every successful Gravity Forms submission, across
  * all forms on the site (or Subscribe instead, for whichever forms are
- * picked under Lead's "Track as Subscribe instead of Lead" list, e.g. a
+ * set to "Track as: Subscribe" under Lead's form list, e.g. a
  * newsletter signup form, where Subscribe is the more accurate standard
  * event than Lead). gform_after_submission already excludes entries flagged
  * as spam, so no extra filtering is needed here.
@@ -90,46 +90,117 @@ class Metatrac_Gravity_Forms_Tracker {
 	}
 
 	/**
-	 * Finds the entry's email and phone values, if the form has fields of
-	 * those types. Only ever picks the first of each, since Meta's user_data
-	 * only has one em/ph slot anyway.
+	 * Finds the entry's email and phone values. Each slot takes the best
+	 * candidate by rank, then form order:
+	 *   1. Native GF field types (email / phone).
+	 *   2. Single-line text fields whose label, admin label, placeholder,
+	 *      parameter name, autocomplete attribute or CSS class names
+	 *      email/phone, and whose value actually validates as one.
+	 *   3. Email only: any single-line text value that passes is_email().
+	 *      Phone is never value-sniffed alone, since zip codes, addresses and
+	 *      flock sizes can look like digit strings.
+	 * Hidden fields are skipped, since builders often use them for routing
+	 * addresses (a location's inbox) that aren't the lead's own.
+	 *
+	 * Sites can override the result with the metatrac_lead_contact_fields
+	 * filter, e.g. to pin exact field IDs for a form.
 	 *
 	 * @param array $form  Gravity Forms form.
 	 * @param array $entry Gravity Forms entry.
 	 * @return array ['email' => ..., 'phone' => ...], values '' when not found.
 	 */
 	private function extract_contact_fields( $form, $entry ) {
-		$email = '';
-		$phone = '';
+		$found = [
+			'email' => '',
+			'phone' => '',
+		];
+		$rank  = [
+			'email' => PHP_INT_MAX,
+			'phone' => PHP_INT_MAX,
+		];
 
 		if ( empty( $form['fields'] ) || ! is_array( $form['fields'] ) ) {
-			return [
-				'email' => $email,
-				'phone' => $phone,
-			];
+			return apply_filters( 'metatrac_lead_contact_fields', $found, $form, $entry );
 		}
 
 		foreach ( $form['fields'] as $field ) {
-			$field_id   = isset( $field->id ) ? $field->id : null;
-			$field_type = isset( $field->type ) ? $field->type : '';
-
-			if ( null === $field_id || empty( $entry[ $field_id ] ) ) {
+			$value = $this->field_value( $field, $entry );
+			if ( '' === $value ) {
 				continue;
 			}
 
-			if ( '' === $email && 'email' === $field_type ) {
-				$email = $entry[ $field_id ];
+			$type = isset( $field->type ) ? $field->type : '';
+			$hint = 'text' === $type ? $this->field_hint( $field ) : '';
+
+			if ( is_email( $value ) ) {
+				if ( 'email' === $type ) {
+					$candidate = 1;
+				} elseif ( $hint && preg_match( '/\be-?mail\b/', $hint ) ) {
+					$candidate = 2;
+				} elseif ( 'text' === $type ) {
+					$candidate = 3;
+				} else {
+					$candidate = PHP_INT_MAX;
+				}
+
+				if ( $candidate < $rank['email'] ) {
+					$found['email'] = $value;
+					$rank['email']  = $candidate;
+				}
+				continue;
 			}
 
-			if ( '' === $phone && 'phone' === $field_type ) {
-				$phone = $entry[ $field_id ];
+			if ( 'phone' === $type ) {
+				$candidate = 1;
+			} elseif ( $hint && preg_match( '/\b(phone|cell|mobile|tel|telephone)\b/', $hint ) ) {
+				$candidate = 2;
+			} else {
+				continue;
+			}
+
+			$digits = preg_replace( '/\D+/', '', $value );
+			if ( $candidate < $rank['phone'] && strlen( $digits ) >= 10 && strlen( $digits ) <= 15 ) {
+				$found['phone'] = $value;
+				$rank['phone']  = $candidate;
 			}
 		}
 
-		return [
-			'email' => $email,
-			'phone' => $phone,
-		];
+		return apply_filters( 'metatrac_lead_contact_fields', $found, $form, $entry );
+	}
+
+	/**
+	 * Trimmed entry value stored under the field's own ID, '' when empty.
+	 * Multi-input fields (name, address) store under sub-IDs like "3.3", so
+	 * they come back '' here; an email field with confirmation enabled still
+	 * stores its value under the field ID and is read normally.
+	 *
+	 * @param object $field GF_Field.
+	 * @param array  $entry Gravity Forms entry.
+	 * @return string
+	 */
+	private function field_value( $field, $entry ) {
+		if ( ! isset( $field->id ) ) {
+			return '';
+		}
+		$key = (string) $field->id;
+		return isset( $entry[ $key ] ) && is_string( $entry[ $key ] ) ? trim( $entry[ $key ] ) : '';
+	}
+
+	/**
+	 * Lowercased bag of every place a builder might name the field. "Phone #"
+	 * becomes "phone", "E-mail Address" stays matchable as "e-mail".
+	 *
+	 * @param object $field GF_Field.
+	 * @return string
+	 */
+	private function field_hint( $field ) {
+		$parts = [];
+		foreach ( [ 'label', 'adminLabel', 'placeholder', 'inputName', 'autocompleteAttribute', 'cssClass' ] as $prop ) {
+			if ( ! empty( $field->$prop ) && is_string( $field->$prop ) ) {
+				$parts[] = $field->$prop;
+			}
+		}
+		return preg_replace( '/[^a-z\-]+/', ' ', strtolower( implode( ' ', $parts ) ) );
 	}
 
 	/**
