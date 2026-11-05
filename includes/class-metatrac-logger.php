@@ -224,6 +224,31 @@ class Metatrac_Logger {
 	}
 
 	/**
+	 * Logs a Gravity Forms submission that wasn't tracked because Gravity
+	 * Forms (or a spam add-on such as CleanTalk or Akismet) marked its entry
+	 * as spam. See Metatrac_Gravity_Forms_Tracker::is_spam_entry().
+	 *
+	 * @param string $event_name Event the form would have fired.
+	 * @param int    $form_id    Gravity Forms form ID.
+	 * @param int    $entry_id   Gravity Forms entry ID.
+	 */
+	public static function log_spam_skipped( $event_name, $form_id, $entry_id ) {
+		if ( ! Metatrac_Settings::is_debug() ) {
+			return;
+		}
+
+		self::append(
+			sprintf(
+				"[%s] skipped_spam_entry event=%s form_id=%d entry_id=%d\n",
+				gmdate( 'Y-m-d H:i:s' ),
+				$event_name,
+				$form_id,
+				$entry_id
+			)
+		);
+	}
+
+	/**
 	 * Logs the outcome of a Conversions API call.
 	 *
 	 * @param string $event_name Standard event name.

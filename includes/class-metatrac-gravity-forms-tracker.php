@@ -3,28 +3,39 @@
  * Class Metatrac_Gravity_Forms_Tracker
  *
  * Tracks a Lead event for every successful Gravity Forms submission, across
- * all forms on the site (or Subscribe instead, for whichever forms are
- * set to "Track as: Subscribe" under Lead's form list, e.g. a
- * newsletter signup form, where Subscribe is the more accurate standard
- * event than Lead). gform_after_submission already excludes entries flagged
- * as spam, so no extra filtering is needed here.
+ * all forms on the site (or Subscribe / Contact instead, for whichever forms
+ * are set to that in their "Track as" dropdown under Lead's form list, e.g.
+ * Subscribe for a newsletter signup form).
  *
- * For a form whose confirmation just displays a message on the same page,
- * that's the end of it: the event queued in track_lead() flushes normally
- * through Metatrac_Pixel's existing footer script (inside the hidden AJAX
- * iframe, if the form uses AJAX, same as a normal page).
+ * gform_after_submission fires for spam entries too (Gravity Forms only
+ * skips notifications and its own feed add-ons for them), so track_lead()
+ * checks the entry's status itself; see is_spam_entry().
  *
- * A form confirmation of type "redirect" is different: Gravity Forms
- * navigates the browser to the confirmation page shortly after the footer
- * renders, racing the Pixel call's own network request. The Conversions API
- * side isn't affected (it's a synchronous PHP call that already completed),
- * but the browser Pixel side frequently loses that race, which is exactly
- * what shows up as low browser-side event_id coverage in Meta's deduplication
- * diagnostics. maybe_defer_for_redirect() below detects that case via the
- * gform_confirmation filter (which knows the resolved confirmation, unlike
- * gform_after_submission) and stashes the event in a short-lived cookie
- * instead of racing the redirect; replay_pending_lead() fires the Pixel side
- * fresh on the confirmation page's own load, a normal page like any other.
+ * Gravity Forms' order of operations within one submission matters here:
+ *   1. The entry is saved and, if a spam filter says so, marked spam.
+ *   2. gform_confirmation runs: the confirmation is resolved.
+ *   3. gform_after_submission runs: track_lead() fires the event.
+ *   4. A non-AJAX redirect sends its Location header and exits; anything
+ *      else is rendered (gform_get_form_confirmation_filter runs here).
+ * Since the event doesn't exist yet in step 2, note_confirmation() only
+ * records what kind of confirmation is coming, and the Pixel side is
+ * routed in step 3 or 4:
+ *
+ * - Non-AJAX text confirmation: the page renders normally, so the event
+ *   queued in track_lead() flushes through Metatrac_Pixel's footer script.
+ *
+ * - Redirect (AJAX or not): no footer ever renders for this response, so
+ *   track_lead() stashes the event in a short-lived cookie (headers aren't
+ *   sent until step 4), and replay_pending_lead() fires the Pixel side on
+ *   the page the visitor lands on.
+ *
+ * - AJAX text confirmation: Gravity Forms posts into a hidden iframe whose
+ *   response holds only the confirmation markup, never the page footer, and
+ *   its JS then copies that markup into the page with jQuery, which runs
+ *   inline scripts. add_ajax_pixel_script() puts a metatracFireEvent() call
+ *   into that markup, the same way the WooCommerce AddToCart fragment does.
+ *
+ * Every route reuses the CAPI copy's event_id, so Meta deduplicates the pair.
  */
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -36,11 +47,19 @@ class Metatrac_Gravity_Forms_Tracker {
 
 	/**
 	 * The Lead event built during this request, if any, picked up by
-	 * maybe_defer_for_redirect() if the submission's confirmation redirects.
+	 * add_ajax_pixel_script() if the confirmation comes back over AJAX.
 	 *
 	 * @var array|null
 	 */
 	private $pending_lead_event = null;
+
+	/**
+	 * Whether each form's resolved confirmation (form ID => bool) redirects,
+	 * as seen by note_confirmation() before track_lead() runs.
+	 *
+	 * @var bool[]
+	 */
+	private $confirmation_redirects = [];
 
 	/**
 	 * Registers the hooks, only if Gravity Forms is active and Lead is enabled.
@@ -50,13 +69,17 @@ class Metatrac_Gravity_Forms_Tracker {
 			return;
 		}
 
-		add_action( 'gform_after_submission', [ $this, 'track_lead' ], 10, 2 );
-		add_filter( 'gform_confirmation', [ $this, 'maybe_defer_for_redirect' ], 20, 4 );
+		// Late, so a spam add-on that marks the entry from its own
+		// gform_after_submission handler has already done so.
+		add_action( 'gform_after_submission', [ $this, 'track_lead' ], 99, 2 );
+		// Late too, after any other plugin has swapped in a redirect.
+		add_filter( 'gform_confirmation', [ $this, 'note_confirmation' ], 99, 4 );
+		add_filter( 'gform_get_form_confirmation_filter', [ $this, 'add_ajax_pixel_script' ], 10, 2 );
 		add_action( 'wp', [ $this, 'replay_pending_lead' ] );
 	}
 
 	/**
-	 * Fires the Lead (or Subscribe) event for a submitted entry.
+	 * Fires the Lead (or Subscribe / Contact) event for a submitted entry.
 	 *
 	 * @param array $entry Gravity Forms entry.
 	 * @param array $form  Gravity Forms form.
@@ -70,6 +93,11 @@ class Metatrac_Gravity_Forms_Tracker {
 
 		$event_name = Metatrac_Settings::lead_event_for_form( $form_id );
 
+		if ( $this->is_spam_entry( $entry ) ) {
+			Metatrac_Logger::log_spam_skipped( $event_name, $form_id, (int) rgar( $entry, 'id' ) );
+			return;
+		}
+
 		$custom_data = [
 			'content_name' => isset( $form['title'] ) ? $form['title'] : '',
 		];
@@ -80,13 +108,39 @@ class Metatrac_Gravity_Forms_Tracker {
 
 		$event_id = Metatrac_Pixel::fire_event( $event_name, $custom_data, Metatrac_Pixel::current_url(), $contact_fields );
 
-		// Stashed in case maybe_defer_for_redirect() decides this submission's
-		// confirmation is about to redirect the browser away.
 		$this->pending_lead_event = [
 			'event'  => $event_name,
 			'params' => $custom_data,
 			'id'     => $event_id,
 		];
+
+		if ( ! empty( $this->confirmation_redirects[ $form_id ] ) ) {
+			$this->set_pending_lead_cookie( $this->pending_lead_event );
+		}
+	}
+
+	/**
+	 * Whether Gravity Forms, or a spam add-on hooked into it (CleanTalk,
+	 * Akismet, ...), has marked this entry as spam. Gravity Forms sets
+	 * status => 'spam' on the passed entry when its gform_entry_is_spam
+	 * filter says so; an add-on that instead updates the stored status from
+	 * its own after-submission handler only shows up in the database, so a
+	 * non-spam status is re-read from there.
+	 *
+	 * @param array $entry Gravity Forms entry.
+	 * @return bool
+	 */
+	private function is_spam_entry( $entry ) {
+		$status = rgar( $entry, 'status' );
+
+		if ( 'spam' !== $status && ! empty( $entry['id'] ) ) {
+			$fresh = GFAPI::get_entry( $entry['id'] );
+			if ( ! is_wp_error( $fresh ) ) {
+				$status = rgar( $fresh, 'status' );
+			}
+		}
+
+		return 'spam' === $status;
 	}
 
 	/**
@@ -204,10 +258,10 @@ class Metatrac_Gravity_Forms_Tracker {
 	}
 
 	/**
-	 * Runs after gform_after_submission, once Gravity Forms has resolved
-	 * which confirmation applies to this submission. Left untouched and
-	 * returned as-is; this only inspects it to decide whether the Pixel side
-	 * of the Lead event needs to survive a redirect.
+	 * Records whether this submission's confirmation redirects, for
+	 * track_lead(), which runs after this. Gravity Forms passes a redirect
+	 * as ['redirect' => url] and a text confirmation as a string. Returned
+	 * untouched.
 	 *
 	 * @param array|string $confirmation Confirmation markup, or a redirect array.
 	 * @param array        $form         Gravity Forms form.
@@ -215,16 +269,53 @@ class Metatrac_Gravity_Forms_Tracker {
 	 * @param bool         $ajax         Whether this is an AJAX submission.
 	 * @return array|string
 	 */
-	public function maybe_defer_for_redirect( $confirmation, $form, $entry, $ajax ) {
-		if ( $this->pending_lead_event && is_array( $confirmation ) && isset( $confirmation['type'] ) && 'redirect' === $confirmation['type'] ) {
-			$this->set_pending_lead_cookie( $this->pending_lead_event );
-		}
+	public function note_confirmation( $confirmation, $form, $entry, $ajax ) {
+		$form_id = isset( $form['id'] ) ? (int) $form['id'] : 0;
+
+		$this->confirmation_redirects[ $form_id ] = is_array( $confirmation ) && ! empty( $confirmation['redirect'] );
 
 		return $confirmation;
 	}
 
 	/**
-	 * Fires the Pixel side of a Lead/Subscribe event that was stashed in a
+	 * Adds the inline Pixel call to an AJAX text confirmation, as it's
+	 * rendered for the hidden iframe (after track_lead() has run). The
+	 * script goes inside the GF_AJAX_POSTBACK body, since that body is the
+	 * only part Gravity Forms' JS copies into the page. It also runs once in
+	 * the iframe itself, where metatracFireEvent isn't defined, hence the
+	 * guard. A non-AJAX confirmation has no such body and is left alone; its
+	 * page's footer flushes the event instead. An AJAX redirect renders
+	 * through here too, as a JS redirect, but its event already went into
+	 * the replay cookie, so it's skipped to avoid firing twice.
+	 *
+	 * @param string $confirmation Rendered confirmation markup.
+	 * @param array  $form         Gravity Forms form.
+	 * @return string
+	 */
+	public function add_ajax_pixel_script( $confirmation, $form ) {
+		$form_id = isset( $form['id'] ) ? (int) $form['id'] : 0;
+
+		if ( ! $this->pending_lead_event || ! empty( $this->confirmation_redirects[ $form_id ] ) || ! is_string( $confirmation ) || false === strpos( $confirmation, 'GF_AJAX_POSTBACK' ) || false === strpos( $confirmation, '</body>' ) ) {
+			return $confirmation;
+		}
+
+		$script = sprintf(
+			'<script>if(window.metatracFireEvent){metatracFireEvent(%s);}</script>',
+			wp_json_encode(
+				[
+					'name'   => $this->pending_lead_event['event'],
+					'params' => $this->pending_lead_event['params'],
+					'id'     => $this->pending_lead_event['id'],
+				],
+				JSON_HEX_TAG | JSON_HEX_AMP
+			)
+		);
+
+		return str_replace( '</body>', $script . '</body>', $confirmation );
+	}
+
+	/**
+	 * Fires the Pixel side of a Lead/Subscribe/Contact event that was stashed in a
 	 * cookie because its confirmation was about to redirect the browser
 	 * away. Runs on every front-end page load, so it picks the event up on
 	 * whichever page the visitor lands on next (normally the confirmation
@@ -244,7 +335,7 @@ class Metatrac_Gravity_Forms_Tracker {
 			return;
 		}
 
-		$event_name = ! empty( $pending['event'] ) && 'Subscribe' === $pending['event'] ? 'Subscribe' : 'Lead';
+		$event_name = ! empty( $pending['event'] ) && in_array( $pending['event'], Metatrac_Settings::lead_form_events(), true ) ? $pending['event'] : 'Lead';
 
 		$params = [];
 		if ( ! empty( $pending['params']['content_name'] ) ) {

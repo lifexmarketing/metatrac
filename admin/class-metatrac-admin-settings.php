@@ -108,20 +108,23 @@ class Metatrac_Admin_Settings {
 			$active_form_ids         = array_map( 'intval', wp_list_pluck( $this->active_gravity_forms(), 'id' ) );
 			$output['lead_form_ids'] = array_values( array_intersect( $posted_form_ids, $active_form_ids ) );
 
-			// Each form's "Track as" radio posts form_event[<id>] => Lead|Subscribe;
-			// only the Subscribe picks are stored, Lead being the default.
-			$posted_subscribe_ids = [];
+			// Each form's "Track as" dropdown posts form_event[<id>] => event;
+			// only the non-Lead picks are stored, Lead being the default.
+			$output['form_events'] = [];
 			if ( isset( $input['form_event'] ) && is_array( $input['form_event'] ) ) {
 				foreach ( $input['form_event'] as $form_id => $event ) {
-					if ( 'Subscribe' === $event ) {
-						$posted_subscribe_ids[] = (int) $form_id;
+					$form_id = (int) $form_id;
+					if ( 'Lead' !== $event && in_array( $event, Metatrac_Settings::lead_form_events(), true ) && in_array( $form_id, $active_form_ids, true ) ) {
+						$output['form_events'][ $form_id ] = $event;
 					}
 				}
 			}
-			$output['subscribe_form_ids'] = array_values( array_intersect( $posted_subscribe_ids, $active_form_ids ) );
+			// Superseded by form_events; see Metatrac_Settings::lead_event_for_form().
+			$output['subscribe_form_ids'] = [];
 		} else {
 			$output['lead_form_mode']     = $current['lead_form_mode'];
 			$output['lead_form_ids']      = $current['lead_form_ids'];
+			$output['form_events']        = $current['form_events'];
 			$output['subscribe_form_ids'] = $current['subscribe_form_ids'];
 		}
 
@@ -384,7 +387,6 @@ class Metatrac_Admin_Settings {
 										$active_forms     = $this->active_gravity_forms();
 										$lead_enabled     = in_array( 'Lead', (array) $settings['enabled_events'], true );
 										$selected_forms   = array_map( 'intval', (array) $settings['lead_form_ids'] );
-										$subscribe_forms  = array_map( 'intval', (array) $settings['subscribe_form_ids'] );
 										?>
 										<div id="metatrac_lead_form_selector" style="margin:0 0 14px 24px;<?php echo $lead_enabled ? '' : 'display:none;'; ?>">
 											<label style="display:block;margin-bottom:4px;">
@@ -405,18 +407,15 @@ class Metatrac_Admin_Settings {
 																<input type="checkbox" name="metatrac_settings[lead_form_ids][]" value="<?php echo esc_attr( $form['id'] ); ?>" <?php checked( in_array( (int) $form['id'], $selected_forms, true ) ); ?> />
 																<?php echo esc_html( $form['title'] ); ?>
 															</label>
-															<?php $is_subscribe = in_array( (int) $form['id'], $subscribe_forms, true ); ?>
-															<span style="font-weight:normal;color:#50575e;">
+															<?php $form_event = Metatrac_Settings::lead_event_for_form( $form['id'] ); ?>
+															<label style="font-weight:normal;color:#50575e;">
 																<?php esc_html_e( 'Track as:', 'metatrac' ); ?>
-																<label style="margin-left:6px;">
-																	<input type="radio" name="metatrac_settings[form_event][<?php echo esc_attr( $form['id'] ); ?>]" value="Lead" <?php checked( ! $is_subscribe ); ?> />
-																	<?php esc_html_e( 'Lead', 'metatrac' ); ?>
-																</label>
-																<label style="margin-left:6px;">
-																	<input type="radio" name="metatrac_settings[form_event][<?php echo esc_attr( $form['id'] ); ?>]" value="Subscribe" <?php checked( $is_subscribe ); ?> />
-																	<?php esc_html_e( 'Subscribe', 'metatrac' ); ?>
-																</label>
-															</span>
+																<select name="metatrac_settings[form_event][<?php echo esc_attr( $form['id'] ); ?>]" style="margin-left:4px;">
+																	<?php foreach ( Metatrac_Settings::lead_form_events() as $event ) : ?>
+																		<option value="<?php echo esc_attr( $event ); ?>" <?php selected( $form_event, $event ); ?>><?php echo esc_html( $event ); ?></option>
+																	<?php endforeach; ?>
+																</select>
+															</label>
 														</div>
 													<?php endforeach; ?>
 													<p class="description" style="margin-top:6px;">

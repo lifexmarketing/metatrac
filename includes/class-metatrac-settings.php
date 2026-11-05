@@ -85,6 +85,7 @@ class Metatrac_Settings {
 			'enabled_events'     => self::trackable_events(),
 			'lead_form_mode'     => 'all',
 			'lead_form_ids'      => [],
+			'form_events'        => [],
 			'subscribe_form_ids' => [],
 			'contact_mailto'     => false,
 			'page_events'        => [],
@@ -163,17 +164,38 @@ class Metatrac_Settings {
 	}
 
 	/**
+	 * The standard Meta events a Gravity Forms form can be set to fire from
+	 * its "Track as" dropdown under Lead's form list. Lead comes first, as
+	 * the default.
+	 *
+	 * @return string[]
+	 */
+	public static function lead_form_events() {
+		return [ 'Lead', 'Subscribe', 'Contact' ];
+	}
+
+	/**
 	 * The standard Meta event a tracked Gravity Forms submission should
-	 * fire: 'Subscribe' for a form set to "Track as: Subscribe" under
-	 * Lead's form list, 'Lead' (the default) for every other form.
-	 * Independent of is_lead_form_tracked() above: this only decides which
-	 * event name a form that's already being tracked fires, not whether
-	 * it's tracked at all.
+	 * fire, per its "Track as" dropdown under Lead's form list: 'Lead' (the
+	 * default), 'Subscribe' or 'Contact'. Independent of
+	 * is_lead_form_tracked() above: this only decides which event name a
+	 * form that's already being tracked fires, not whether it's tracked at
+	 * all.
+	 *
+	 * Only non-Lead picks are stored, in 'form_events' (form ID => event).
+	 * Settings last saved before 1.6.2 kept Subscribe picks as a plain ID
+	 * list in 'subscribe_form_ids' instead, which is still honored until the
+	 * settings are next saved (the save clears it).
 	 *
 	 * @param int $form_id Gravity Forms form ID.
-	 * @return string 'Lead' or 'Subscribe'.
+	 * @return string One of lead_form_events().
 	 */
 	public static function lead_event_for_form( $form_id ) {
+		$form_events = self::get( 'form_events' );
+		if ( is_array( $form_events ) && isset( $form_events[ (int) $form_id ] ) && in_array( $form_events[ (int) $form_id ], self::lead_form_events(), true ) ) {
+			return $form_events[ (int) $form_id ];
+		}
+
 		$subscribe_form_ids = self::get( 'subscribe_form_ids' );
 		return ( is_array( $subscribe_form_ids ) && in_array( (int) $form_id, $subscribe_form_ids, true ) ) ? 'Subscribe' : 'Lead';
 	}

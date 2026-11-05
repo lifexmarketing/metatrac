@@ -200,13 +200,35 @@ between the two.
 
 ### Lead (Gravity Forms submissions)
 
-Fires via `gform_after_submission`, which Gravity Forms already skips for
-entries flagged as spam. `custom_data.content_name` is set to the form's
-title. Unlike AddToCart, no ajax-fragment workaround is needed: Gravity
-Forms' own AJAX submission mechanism re-renders the entire page template
-(including `wp_head`/`wp_footer`) inside a hidden iframe, so the Pixel event
-queued during that request flushes normally through the existing footer
-script.
+Fires via `gform_after_submission` (priority 99). `custom_data.content_name`
+is set to the form's title.
+
+Gravity Forms fires `gform_after_submission` for spam entries too; it only
+skips notifications and its own feed add-ons (Webhooks, Zapier, ...) for
+them. So MetaTrac skips any entry whose status is `spam`, checking both the
+entry passed in (set when a spam filter uses `gform_entry_is_spam`) and the
+stored entry (for an add-on that updates the status from its own
+after-submission handler). That covers Akismet, CleanTalk or any other spam
+add-on without MetaTrac needing heuristics of its own. Skipped entries are
+logged as `skipped_spam_entry` in debug mode.
+
+The browser Pixel copy needs routing, because the submission response often
+never renders the page footer where the event queue flushes:
+
+- **Non-AJAX, text confirmation:** the page renders normally, so the footer
+  flush fires it.
+- **Redirect confirmation (AJAX or not):** the event goes into a short-lived
+  `metatrac_pending_lead` cookie and fires on the page the visitor lands on.
+- **AJAX, text confirmation:** Gravity Forms' hidden-iframe response holds
+  only the confirmation markup, so MetaTrac adds an inline
+  `metatracFireEvent()` call to it (via
+  `gform_get_form_confirmation_filter`, Gravity Forms 2.5.15+). It runs when
+  Gravity Forms copies the markup into the page.
+
+All three reuse the CAPI copy's `event_id`, so Meta deduplicates the pair.
+The confirmation type is read in `gform_confirmation`, which Gravity Forms
+runs *before* `gform_after_submission`, so the event itself can't be built
+there.
 
 By default, every active form on the site fires Lead. The MetaTrac settings
 screen (Settings > MetaTrac > Events to Track > Lead) can instead be
@@ -214,20 +236,23 @@ switched to "Only these forms," listing every active Gravity Form so
 specific forms (e.g. a newsletter signup) can be excluded from Lead without
 disabling Lead tracking site-wide.
 
-Each form in that list also has its own "Track as: Lead / Subscribe"
-radio (Lead by default), for a form where Subscribe is the more accurate
-standard event (a newsletter signup is a common case: it's a subscription,
-not a sales lead). Choosing Subscribe only changes which event that form fires
-(`Metatrac_Settings::lead_event_for_form()`); it doesn't add the form to
-tracking on its own, so it still needs to be covered by "All active Gravity
-Forms" or its own checkbox under "Only these forms." A form's Subscribe
-event goes through the exact same fan-out as Lead (Pixel, CAPI, the
-redirect-confirmation cookie replay below), just under a different name.
+Each form in that list also has its own "Track as" dropdown (Lead, Subscribe
+or Contact; Lead by default), for a form where another standard event is
+more accurate: Subscribe for a newsletter signup (a subscription, not a
+sales lead), Contact for a general inquiry form. The choice only changes
+which event that form fires (`Metatrac_Settings::lead_event_for_form()`);
+it doesn't add the form to tracking on its own, so it still needs to be
+covered by "All active Gravity Forms" or its own checkbox under "Only these
+forms." Every option goes through the exact same fan-out as Lead (Pixel,
+CAPI, the confirmation routing above), just under a
+different name, and all of it is still governed by the Lead checkbox:
+picking Contact here doesn't depend on the Contact link-click event being
+enabled.
 
-**Known limitation:** if a form's confirmation is set to "Redirect to a URL"
-or "Redirect to a page," the browser navigates away right after submitting,
-so the browser Pixel call could be lost if the redirect fires before the
-footer script runs. The server-side CAPI event still fires normally either way.
+Only non-Lead picks are stored, in the `form_events` setting (form ID =>
+event). Before 1.6.2, Subscribe picks lived in a `subscribe_form_ids` list;
+that list is still read until the settings screen is next saved, which
+moves everything to `form_events`.
 
 ## Page Events (any standard event, on any page)
 

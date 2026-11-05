@@ -4,7 +4,7 @@ Tags: woocommerce, meta, facebook, pixel, conversions api
 Requires at least: 6.0
 Tested up to: 7.0.2
 Requires PHP: 7.4
-Stable tag: 1.6.1
+Stable tag: 1.6.2
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -36,6 +36,25 @@ that page, independent of the events above.
 4. Choose which events to track.
 
 == Changelog ==
+
+= 1.6.2 =
+* Gravity Forms entries marked as spam (by Akismet, CleanTalk or any other
+  spam add-on) no longer send Lead/Subscribe/Contact to Meta. Gravity Forms
+  runs gform_after_submission for spam entries too; MetaTrac now checks the
+  entry's status, both as passed in and as stored, and logs skipped entries
+  as skipped_spam_entry in debug mode.
+* Fixed the browser Pixel copy never firing for forms with a redirect
+  confirmation. The check looked for the wrong confirmation shape, and ran
+  before the event existed, since Gravity Forms resolves the confirmation
+  before gform_after_submission. The replay cookie is now set from
+  track_lead() itself.
+* Fixed the browser Pixel copy never firing for AJAX forms with a text
+  confirmation: the iframe response has no page footer, so an inline
+  metatracFireEvent() call is now added to the confirmation markup Gravity
+  Forms copies into the page (requires Gravity Forms 2.5.15+).
+* Each form's "Track as" option under Lead is now a dropdown with Lead
+  (default), Subscribe and Contact. Existing Subscribe picks carry over
+  and move to the new form_events setting on the next settings save.
 
 = 1.6.1 =
 * Better CAPI match quality for Lead: email and phone are now also found in
