@@ -200,8 +200,8 @@ class Metatrac_Logger {
 	}
 
 	/**
-	 * Logs a CAPI event that was skipped because the visitor sent a Do Not
-	 * Track or Global Privacy Control signal (see
+	 * Logs a CAPI event that was skipped because the visitor sent a Global
+	 * Privacy Control signal (see
 	 * Metatrac_Settings::visitor_opted_out()).
 	 *
 	 * @param string $event_name Event name.

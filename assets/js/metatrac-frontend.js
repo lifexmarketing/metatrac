@@ -19,9 +19,9 @@
  * matching CAPI call runs fresh on every real page load instead.
  *
  * window.metatracOptedOut (set by the base pixel snippet in wp_head, see
- * Metatrac_Pixel::output_base_pixel()) is true when the site honors Do Not
- * Track / Global Privacy Control and this visitor's browser sends either
- * one. Everything below checks it before any fbq() call or CAPI request,
+ * Metatrac_Pixel::output_base_pixel()) is true when this visitor's browser
+ * sends Global Privacy Control, which is always honored (Do Not Track is
+ * not). Everything below checks it before any fbq() call or CAPI request,
  * since another plugin may still have loaded its own fbq.
  */
 function metatracGenerateEventId() {

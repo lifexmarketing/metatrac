@@ -89,7 +89,6 @@ class Metatrac_Settings {
 			'subscribe_form_ids' => [],
 			'contact_mailto'     => false,
 			'page_events'        => [],
-			'honor_dnt'          => true,
 			'debug_mode'         => false,
 		];
 	}
@@ -211,20 +210,10 @@ class Metatrac_Settings {
 	}
 
 	/**
-	 * Whether this site honors visitors' Do Not Track and Global Privacy
-	 * Control signals, skipping both the Pixel and the Conversions API for
-	 * anyone sending either one.
-	 *
-	 * @return bool
-	 */
-	public static function is_honor_dnt() {
-		return (bool) self::get( 'honor_dnt' );
-	}
-
-	/**
 	 * Whether the visitor making the current request has opted out of
-	 * tracking via a Do Not Track (DNT: 1) or Global Privacy Control
-	 * (Sec-GPC: 1) request header, and this site honors those signals.
+	 * tracking via a Global Privacy Control (Sec-GPC: 1) request header.
+	 * GPC is always honored; there is no setting for it. Do Not Track is
+	 * deliberately not checked: MetaTrac does not respond to DNT.
 	 *
 	 * Only meaningful on requests that are never served from a page cache
 	 * (ajax, form submissions, the order-received page), which is every
@@ -236,14 +225,9 @@ class Metatrac_Settings {
 	 * @return bool
 	 */
 	public static function visitor_opted_out() {
-		if ( ! self::is_honor_dnt() ) {
-			return false;
-		}
-
-		$dnt = isset( $_SERVER['HTTP_DNT'] ) ? trim( sanitize_text_field( wp_unslash( $_SERVER['HTTP_DNT'] ) ) ) : '';
 		$gpc = isset( $_SERVER['HTTP_SEC_GPC'] ) ? trim( sanitize_text_field( wp_unslash( $_SERVER['HTTP_SEC_GPC'] ) ) ) : '';
 
-		return '1' === $dnt || '1' === $gpc;
+		return '1' === $gpc;
 	}
 
 	/**

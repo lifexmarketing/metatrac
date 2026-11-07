@@ -156,7 +156,6 @@ class Metatrac_Admin_Settings {
 			$output['page_events'][ $page_id ] = $event;
 		}
 
-		$output['honor_dnt']  = ! empty( $input['honor_dnt'] );
 		$output['debug_mode'] = ! empty( $input['debug_mode'] );
 
 		return $output;
@@ -488,12 +487,11 @@ class Metatrac_Admin_Settings {
 						</td>
 					</tr>
 					<tr>
-						<th scope="row"><label for="metatrac_honor_dnt"><?php esc_html_e( 'Privacy Signals', 'metatrac' ); ?></label></th>
+						<th scope="row"><?php esc_html_e( 'Privacy Signals', 'metatrac' ); ?></th>
 						<td>
-							<label>
-								<input type="checkbox" id="metatrac_honor_dnt" name="metatrac_settings[honor_dnt]" value="1" <?php checked( $settings['honor_dnt'] ); ?> />
-								<?php esc_html_e( 'Honor Do Not Track and Global Privacy Control: visitors whose browser sends either signal get no Meta Pixel and no Conversions API events.', 'metatrac' ); ?>
-							</label>
+							<p>
+								<?php esc_html_e( 'We do not respond to Do Not Track (DNT) signals. We honor Global Privacy Control (GPC): visitors whose browser sends it get no Meta Pixel and no Conversions API events. This is always on and can\'t be turned off.', 'metatrac' ); ?>
+							</p>
 						</td>
 					</tr>
 					<tr>

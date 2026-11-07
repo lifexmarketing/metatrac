@@ -4,7 +4,7 @@ Tags: woocommerce, meta, facebook, pixel, conversions api
 Requires at least: 6.0
 Tested up to: 7.0.2
 Requires PHP: 7.4
-Stable tag: 1.6.2
+Stable tag: 1.6.3
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -36,6 +36,15 @@ that page, independent of the events above.
 4. Choose which events to track.
 
 == Changelog ==
+
+= 1.6.3 =
+* Global Privacy Control is now always honored: visitors whose browser
+  sends GPC get no Meta Pixel and no Conversions API events. The Privacy
+  Signals checkbox is removed, so GPC can no longer be turned off.
+* MetaTrac no longer responds to Do Not Track. The settings screen now
+  states this ("We do not respond to Do Not Track (DNT) signals. We honor
+  Global Privacy Control (GPC)"). Any stored honor_dnt value is ignored and
+  dropped on the next settings save.
 
 = 1.6.2 =
 * Gravity Forms entries marked as spam (by Akismet, CleanTalk or any other
